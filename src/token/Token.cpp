@@ -1,41 +1,41 @@
-#include "Token.h"
+#include "token/Token.h"
 
-using namespace Stone;
+using namespace Sand;
 
 const Token Token::ST_EOF(-1);
-const StoneString Token::ST_EOL(MakeStr("\\n"));
+const SandString Token::ST_EOL(MakeStr("\\n"));
 
-int Stone::Token::getLineNumber()
+int Token::getLineNumber() const
 {
 	return lineNumber;
 }
 
-bool Stone::Token::isIdentifier()
+bool Token::isIdentifier() const
 {
 	return false;
 }
 
-bool Stone::Token::isNumber()
+bool Token::isNumber() const
 {
 	return false;
 }
 
-bool Stone::Token::isString()
+bool Token::isString() const
 {
 	return false;
 }
 
-int Stone::Token::getNumber()
+int Token::getNumber() const
 {
 	return 0;
 }
 
-StoneString Stone::Token::getText()
+SandString Token::getText() const
 {
-	return StoneString();
+	return SandString();
 }
 
-Stone::Token::Token(uint32_t inLineNumber):
+Token::Token(uint32_t inLineNumber):
 	lineNumber(inLineNumber)
 {
 }

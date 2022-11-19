@@ -2,4 +2,4 @@
 #include <iostream>
 
 #define MakeStr(RawStr) (RawStr)
-typedef std::string StoneString;
+typedef std::string SandString;
