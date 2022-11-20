@@ -4,10 +4,11 @@ PROJECT(Sand) #项目名称
 
 INCLUDE_DIRECTORIES(include)
 
-AUX_SOURCE_DIRECTORY(./src/token TOKEN_LIB) #把src的token目录(.)下所有源代码文件和头文件加入变量TOKEN_LIB 
+# AUX_SOURCE_DIRECTORY(./src/sand/token SAND_FILES) #把src的sand目录(.)下所有源代码文件和头文件加入变量SAND_FILES
+FILE(GLOB_RECURSE SAND_FILES src/sand/*.cpp) # 把src的sand目录(.)下所有源代码文件(递归)和头文件加入变量SAND_FILES
 
-ADD_LIBRARY(tokenlib ${TOKEN_LIB}) #将Token编译为一个单独的库
+ADD_LIBRARY(libSand ${SAND_FILES}) #将Token编译为一个单独的库
 
 ADD_EXECUTABLE(sand ./src/main.cpp) #生成应用程序 sand
 
-TARGET_LINK_LIBRARIES(sand tokenlib)
+TARGET_LINK_LIBRARIES(sand libSand)

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <iostream>
-#include "SandGlobalDefines.h"
+#include "sand/SandGlobalDefines.h"
 
 namespace Sand{
 	class IToken {
