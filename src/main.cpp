@@ -1,11 +1,13 @@
 #include <iostream>
-#include "sand/token/Token.h"
+#include "sand/Lexer.h"
 
 using namespace std;
 using namespace Sand;
 
 int main()
 {
-	cout << Token::ST_EOF.getLineNumber() << endl;
+	// Lexer lexer1(MakeStr("dd"));
+	Lexer lexer1;
+	cout << lexer1.Peek().getLineNumber() << endl;
 	cout << "Hello Sand!" << endl;
 }
