@@ -5,15 +5,16 @@ using namespace Sand;
 
 static const SandString REGEXP_PAT(MakeStr(""));
 
-// Lexer::Lexer(ifstream& Input) :
-//     TokenFlow(),
-//     HasMore(false),
-//     Reader(Input),
-//     Pattern()
-// {
-// }
+Lexer::Lexer(istream* Input):
+     TokenFlow(),
+     HasMore(false),
+     Reader(Input),
+     Pattern()
+ {
+    Tokenize();
+ }
 
-Token Lexer::Read() {
+ Token Lexer::Read() {
     return Token::ST_EOF;
 }
 
@@ -25,6 +26,15 @@ void Lexer::ReadLine() {
     
 }
 
-bool Lexer::FillQueue(int Index) {
+void Sand::Lexer::Tokenize()
+{
+    char linebuf[4096];
+    while(!Reader->eof()) {
+        Reader->getline(linebuf, 4096);
+        std::cout << linebuf << endl;
+    }
+}
 
+bool Lexer::FillQueue(int Index) {
+    return false;
 }

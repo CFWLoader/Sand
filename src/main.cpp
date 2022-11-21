@@ -12,18 +12,15 @@ SandString MakeWinPath(const SandString& RawPath) {
 
 int main()
 {
-	ifstream inputFile;
+	filebuf inputFile;
 	SandString ProgramPath(MakeStr("program1.sand"));
 	inputFile.open(MakeWinPath(ProgramPath), ios::in);
 	if (!inputFile.is_open()) {
 		cerr << "Error opening program1.sand" << endl;
 		return 0;
 	}
-	string lineOne;
-	while (!inputFile.eof()) {
-		inputFile >> lineOne;
-		cout << lineOne << endl;
-	}
+	istream inputStream(&inputFile);
+	Lexer ProgramLexer(&inputStream);
 	inputFile.close();
 	return 0;
 	// Lexer lexer1(MakeStr("dd"));
