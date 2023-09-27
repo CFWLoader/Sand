@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # print(mymacd)
     # arima_automata(df0700['收盘'])
     eve_inspector = StockProphet()
-    eve_inspector.setup_inspectee('./datasets/eve300014.csv')
+    eve_inspector.setup_inspectee('./QuantFirst/datasets/eve300014.csv')
     # eve_inspector.draw_data()
     # eve_inspector.simulate_automatic_investment_plan('2018-01-01', '2023-09-20')
     eve_inspector.modelling()

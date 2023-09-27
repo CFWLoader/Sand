@@ -44,6 +44,8 @@ class StockProphet:
         self.core_data['high'] = source_data['高']
         self.core_data['volume'] = source_data['交易量'].apply(convert_volume_expr)
         self.core_data['change'] = source_data['涨跌幅'].apply(convert_change_rate_expr)
+        self.core_data['ds'] = self.core_data['date']
+        self.core_data['y'] = self.core_data['close']
         self.core_data.sort_values('date', inplace=True)
         self.core_data.reset_index(drop=True, inplace=True)
         data_len = len(self.core_data)
@@ -68,7 +70,8 @@ class StockProphet:
         ax2.bar(self.core_data['date'], self.core_data['volume'], color='red')
         plt.show()
 
-    def simulate_automatic_investment_plan(self, sim_start_date='2015-01-01', sim_end_date='2023-09-25', invs_per_day = 100):
+    def simulate_automatic_investment_plan(self, sim_start_date='2015-01-01', sim_end_date='2023-09-25',
+                                           invs_per_day=100):
         sim_start_date_dt = pd.to_datetime(sim_start_date)
         sim_end_date_dt = pd.to_datetime(sim_end_date)
         data_min_date = np.min(self.core_data['date'])
@@ -86,7 +89,7 @@ class StockProphet:
         acc_buy_cost = 0
         open_price = sim_ranges['open']
         close_price = sim_ranges['close']
-        for index in range(0,sim_range_len):
+        for index in range(0, sim_range_len):
             bought_shares += invs_per_day
             cost_by_dates[index] = invs_per_day * open_price[index]
             acc_buy_cost += cost_by_dates[index]
@@ -94,8 +97,8 @@ class StockProphet:
             acc_profit_by_dates[index] = bought_shares * close_price[index] - cost_by_dates.sum()
         last_price = close_price[sim_range_len - 1]
         acc_profit = bought_shares * last_price - acc_buy_cost
-        choose_p_color = np.vectorize(lambda prf : 'g' if prf < 0 else 'r')
-        positivize_fun = np.vectorize(lambda x : x if x >= 0 else -x)
+        choose_p_color = np.vectorize(lambda prf: 'g' if prf < 0 else 'r')
+        positivize_fun = np.vectorize(lambda x: x if x >= 0 else -x)
         profit_by_dates_draw_color = choose_p_color(acc_profit_by_dates)
         positivize_profit = positivize_fun(acc_profit_by_dates)
 
@@ -105,16 +108,21 @@ class StockProphet:
         ax1.plot(sim_ranges['date'], sim_ranges['close'], color='blue')
         ax2 = ax1.twinx()
         ax2.set_ylabel('profit')
-        ax2.bar(sim_ranges['date'], positivize_profit, color= profit_by_dates_draw_color)
+        ax2.bar(sim_ranges['date'], positivize_profit, color=profit_by_dates_draw_color)
         plt.show()
 
-    def simulate_one_shot_investment(self, trigger_date = '2015-01-01', shot_amount = 100):
+    def simulate_one_shot_investment(self, trigger_date='2015-01-01', shot_amount=100):
         return
 
     def modelling(self):
+        # self.train_set['ds'] = self.train_set['date'].copy()
+        # self.train_set['y'] = self.train_set['close'].copy()
         prop_model = Prophet()
         prop_model.fit(self.train_set)
-        self.train_set['ds'] = self.train_set['date']
-        self.train_set['y'] = self.train_set['close']
         future = prop_model.make_future_dataframe(periods=0, freq='D')
         future_values = prop_model.predict(future)
+        fig, ax = plt.subplots(1, 1)
+        ax.plot(self.train_set['ds'], self.train_set['y'], 'ko-', linewidth=1.4, alpha=0.8, ms=1.8, label='Observations')
+        ax.plot(future_values['ds'], future_values['yhat'], 'forestgreen', linewidth=2.4, label='Modeled')
+        ax.fill_between(future_values['ds'].dt.to_pydatetime(), future_values['yhat_upper'], future_values['yhat_lower'], alpha=0.3, facecolor='g', edgecolor='k', linewidth=1.4, label='Confidence Interval')
+        plt.show()
