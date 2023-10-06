@@ -30,3 +30,4 @@ if __name__ == '__main__':
     # eve_inspector.draw_data()
     # eve_inspector.simulate_automatic_investment_plan('2018-01-01', '2023-09-20')
     eve_inspector.modelling()
+    # eve_inspector.plot_change_points()

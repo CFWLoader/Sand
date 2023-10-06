@@ -118,11 +118,53 @@ class StockProphet:
         # self.train_set['ds'] = self.train_set['date'].copy()
         # self.train_set['y'] = self.train_set['close'].copy()
         prop_model = Prophet()
+        prop_model.add_seasonality('monthly', period=30.5, fourier_order=5)
         prop_model.fit(self.train_set)
-        future = prop_model.make_future_dataframe(periods=0, freq='D')
+        # print fit model and observations
+        future = prop_model.make_future_dataframe(periods=20, freq='D')
         future_values = prop_model.predict(future)
         fig, ax = plt.subplots(1, 1)
         ax.plot(self.train_set['ds'], self.train_set['y'], 'ko-', linewidth=1.4, alpha=0.8, ms=1.8, label='Observations')
         ax.plot(future_values['ds'], future_values['yhat'], 'forestgreen', linewidth=2.4, label='Modeled')
         ax.fill_between(future_values['ds'].dt.to_pydatetime(), future_values['yhat_upper'], future_values['yhat_lower'], alpha=0.3, facecolor='g', edgecolor='k', linewidth=1.4, label='Confidence Interval')
+        plt.legend(loc=2, prop={'size': 10})
+        plt.xlabel('Date')
+        plt.ylabel('Price ￥')
+        plt.grid(linewidth=0.6, alpha=0.6)
+        plt.title('Eve(300014)')
+        plt.show()
+        # plot components
+        # prop_model.plot_components(future_values)
+        # plt.show()
+        # change points
+
+    def plot_change_points(self):
+        prop_model = Prophet()
+        prop_model.add_seasonality('monthly', period=30.5, fourier_order=5)
+        prop_model.fit(self.train_set)
+        # print fit model and observations
+        future = prop_model.make_future_dataframe(periods=0, freq='D')
+        future_values = prop_model.predict(future)
+        p_chg_pts = prop_model.changepoints
+        chg_indices = []
+        for chg_pt in p_chg_pts:
+            chg_indices.append(self.train_set[self.train_set['ds'] == chg_pt].index[0])
+        jp_data = self.train_set.iloc[chg_indices, :]
+        # second order derivative
+        deltas = prop_model.params['delta'][0]
+        print(prop_model.params)
+        jp_data['delta'] = deltas
+        # jp_data['abs_delta'] = abs(jp_data['delta'])
+        # sorted_jp_data = jp_data.sort_values(by='abs_delta', ascending=False)
+        # print(jp_data)
+        jp_pos = jp_data[jp_data['delta'] >= 0]
+        jp_neg = jp_data[jp_data['delta'] < 0]
+        plt.plot(self.train_set['ds'], self.train_set['y'], 'ko', ms=4, label='Stock Price')
+        plt.plot(future_values['ds'], future_values['yhat'], color='navy', linewidth=2.0, label='Modeled')
+        plt.vlines(jp_pos['ds'], ymin=min(self.train_set['y']), ymax=max(self.train_set['y']), linestyles='dashed', color='r', linewidth=1.2, label='Positive Change points')
+        plt.vlines(jp_neg['ds'], ymin=min(self.train_set['y']), ymax=max(self.train_set['y']), linestyles='dashed', color='darkgreen', linewidth=1.2, label='Negative Change points')
+        plt.legend(prop={'size': 10})
+        plt.xlabel('Date')
+        plt.ylabel('Price(CNY)')
+        plt.title('Stock Price with change points')
         plt.show()
