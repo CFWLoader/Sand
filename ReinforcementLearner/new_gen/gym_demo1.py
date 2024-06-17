@@ -22,14 +22,14 @@ total_steps = 0 # 记录步数
 for i_episode in range(100):
 
     # 获取回合 i_episode 第一个 observation
-    observation = env.reset()
+    observation = env.reset()[0]
     ep_r = 0
     while True:
         env.render()    # 刷新环境
 
         action = RL.choose_action(observation)  # 选行为
 
-        observation_, reward, done, info = env.step(action) # 获取下一个 state
+        observation_, reward, done, info, extra_out = env.step(action) # 获取下一个 state
 
         x, x_dot, theta, theta_dot = observation_   # 细分开, 为了修改原配的 reward
 

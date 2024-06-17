@@ -11,7 +11,7 @@ gym: 0.8.0
 """
 
 import gym
-from RL_brain import PolicyGradient
+from new_gen.policy_gradient.PolicyGradient import PolicyGradient
 import matplotlib.pyplot as plt
 
 DISPLAY_REWARD_THRESHOLD = -2000  # renders environment if total episode reward is greater then this threshold
@@ -23,7 +23,7 @@ DISPLAY_REWARD_THRESHOLD = -2000  # renders environment if total episode reward 
 RENDER = False  # rendering wastes time
 
 env = gym.make('MountainCar-v0')
-env.seed(1)     # reproducible, general Policy gradient has high variance
+env.reset(seed=1)     # reproducible, general Policy gradient has high variance
 env = env.unwrapped
 
 print(env.action_space)

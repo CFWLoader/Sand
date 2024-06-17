@@ -18,14 +18,14 @@ total_steps = 0
 
 for i_episode in range(10):
 
-    observation = env.reset()
+    observation = env.reset()[0]
     ep_r = 0
     while True:
         env.render()
 
         action = RL.choose_action(observation)
 
-        observation_, reward, done, info = env.step(action)
+        observation_, reward, done, info, extra_out = env.step(action)
 
         position, velocity = observation_
 
