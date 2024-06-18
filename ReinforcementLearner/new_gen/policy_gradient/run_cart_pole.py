@@ -14,11 +14,11 @@ import gym
 from new_gen.policy_gradient.PolicyGradient import PolicyGradient
 import matplotlib.pyplot as plt
 
-DISPLAY_REWARD_THRESHOLD = 400  # renders environment if total episode reward is greater then this threshold
+DISPLAY_REWARD_THRESHOLD = 400  # renders environment if total episode reward is greater than this threshold
 RENDER = False  # rendering wastes time
 
 env = gym.make('CartPole-v0')
-env.seed(1)     # reproducible, general Policy gradient has high variance
+# env.seed(1)     # reproducible, general Policy gradient has high variance
 env = env.unwrapped
 
 print(env.action_space)
@@ -36,14 +36,14 @@ RL = PolicyGradient(
 
 for i_episode in range(3000):
 
-    observation = env.reset()
+    observation, reset_info = env.reset(seed=1)
 
     while True:
         if RENDER: env.render()
 
         action = RL.choose_action(observation)
 
-        observation_, reward, done, info = env.step(action)
+        observation_, reward, done, info, extra_map = env.step(action)
 
         RL.store_transition(observation, action, reward)
 

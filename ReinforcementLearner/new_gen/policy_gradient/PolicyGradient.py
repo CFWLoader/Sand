@@ -18,12 +18,13 @@ class PolicyGradient:
         n_hidden = 10
         fc1 = tnn.Linear(self.n_features, n_hidden).cuda()
         fc1.weight.data.normal_(0, 0.3)
-        fc1.bias.data.constant_(0.1)
-        tnn.init.constant_(fc1.bias.data.constant_, 0.1)
+        # fc1.bias.data.constant_(0.1)
+        tnn.init.constant_(fc1.bias.data, 0.1)
 
-        all_act = tnn.Linear(n_hidden, self.n_actions)
+        all_act = tnn.Linear(n_hidden, self.n_actions).cuda()
         all_act.weight.data.normal_(0, 0.3)
-        all_act.bias.data.constant_(0.1)
+        tnn.init.constant_(all_act.weight.data, .01)
+        # all_act.bias.data.constant_(0.1)
 
         self.neural_net = tnn.Sequential(
             fc1,
@@ -32,16 +33,17 @@ class PolicyGradient:
             tnn.Softmax()
         )
 
-        self.loss_func1 = tnn.CrossEntropyLoss(reduce=False)
-        self.LogSoftMax = tnn.LogSoftmax(dim=-1)
-        self.loss_func2 = tnn.NLLLoss(reduce=False)
+        self.loss_func = tnn.CrossEntropyLoss(reduce=False)
+        # self.LogSoftMax = tnn.LogSoftmax(dim=-1)
+        # self.loss_func2 = tnn.NLLLoss(reduce=False)
         self.optim = torch.optim.Adam(self.neural_net.parameters(), lr=self.lr)
         print(self.neural_net)
 
     # 选行为 (有改变)
     def choose_action(self, observation):
-        prob_weights = self.neural_net.forward(observation).cpu()
-        action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())
+        prob_weights_res = self.neural_net.forward(torch.Tensor(observation).cuda()).cpu()
+        prob_weights = prob_weights_res.detach().numpy()
+        action = np.random.choice(range(prob_weights.shape[0]), p=prob_weights.ravel())
         return action
 
     # 存储回合 transition (有改变)
@@ -51,32 +53,59 @@ class PolicyGradient:
         self.ep_rs.append(r)
 
     # 学习更新参数 (有改变)
-    def learn(self, s, a, r, s_):
+    # def learn(self):
+    #     # discount and normalize episode reward
+    #     discounted_ep_rs_norm = self._discount_and_norm_rewards()
+    #     self.tf_vt = discounted_ep_rs_norm
+    #
+    #     '''
+    #     algo1
+    #     这段是模拟tensorflow.nn.sparse_softmax_cross_entropy_with_logit行为，是优化后的做法
+    #     ptlbls = torch.tensor([]).int()
+    #     ptlgts = torch.tensor([])
+    #     diff1 = self.loss_func1(ptlbls, ptlgts)
+    #     diffLSM = self.LogSoftMax(diff1)
+    #     neg_log_prob = self.loss_func2(diffLSM, ptlgts.long())
+    #     loss_val = neg_log_prob * self.tf_vt
+    #     '''
+    #     # neg_log_prob = tf.reduce_sum(-tf.log(self.all_act_prob)*tf.one_hot(self.tf_acts, self.n_actions), axis=1)
+    #     # loss = tf.reduce_mean(neg_log_prob * self.tf_vt)  # reward guided loss
+    #     self.all_act = self.neural_net.forward(s)
+    #     self.all_act_prob = tnn.Softmax(self.all_act)
+    #     act2one_hot = torch.nn.functional.one_hot(self.all_act, self.n_actions)
+    #     neg_log_prob = -torch.log(self.all_act_prob) * act2one_hot
+    #     loss_val = None
+    #
+    #     self.optim.zero_grad()
+    #     loss_val.backward()
+    #     self.optim.step()
+    #
+    #     self.ep_obs, self.ep_as, self.ep_rs = [], [], []  # empty episode data
+    #     return discounted_ep_rs_norm
+
+    # 学习更新参数 (有改变)
+    def learn(self):
         # discount and normalize episode reward
         discounted_ep_rs_norm = self._discount_and_norm_rewards()
-        self.tf_vt = discounted_ep_rs_norm
 
-        '''
-        algo1
-        这段是模拟tensorflow.nn.sparse_softmax_cross_entropy_with_logit行为，是优化后的做法
-        ptlbls = torch.tensor([]).int()
-        ptlgts = torch.tensor([])
-        diff1 = self.loss_func1(ptlbls, ptlgts)
-        diffLSM = self.LogSoftMax(diff1)
-        neg_log_prob = self.loss_func2(diffLSM, ptlgts.long())
-        loss_val = neg_log_prob * self.tf_vt
-        '''
-        # neg_log_prob = tf.reduce_sum(-tf.log(self.all_act_prob)*tf.one_hot(self.tf_acts, self.n_actions), axis=1)
-        # loss = tf.reduce_mean(neg_log_prob * self.tf_vt)  # reward guided loss
-        self.all_act = self.neural_net.forward(s)
+        self.torch_vt = torch.Tensor(discounted_ep_rs_norm).cuda()
+        self.torch_acts = torch.Tensor(np.array(self.ep_as)).long()
+        self.torch_obs = torch.Tensor(np.vstack(self.ep_obs))
+        self.act2one_hot = torch.nn.functional.one_hot(self.torch_acts, self.n_actions).float()
+
+        self.all_act = self.neural_net.forward(self.torch_obs.cuda())
         self.all_act_prob = tnn.Softmax(self.all_act)
-        act2one_hot = torch.nn.functional.one_hot(self.all_act, self.n_actions)
-        neg_log_prob = -torch.log(self.all_act_prob) * act2one_hot
-        loss_val = None
+
+        neg_log_prob = self.loss_func(self.all_act, self.act2one_hot.cuda())
+
+        loss_val = torch.mean(neg_log_prob * self.torch_vt)
 
         self.optim.zero_grad()
         loss_val.backward()
         self.optim.step()
+
+        self.ep_obs, self.ep_as, self.ep_rs = [], [], []  # empty episode data
+        return discounted_ep_rs_norm
 
     # 衰减回合的 reward (新内容)
     def _discount_and_norm_rewards(self):
