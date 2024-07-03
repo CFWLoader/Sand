@@ -23,6 +23,7 @@ DISPLAY_REWARD_THRESHOLD = -2000  # renders environment if total episode reward 
 RENDER = False  # rendering wastes time
 
 env = gym.make('MountainCar-v0')
+# env = gym.make('MountainCar-v0', render_mode='human')
 env.reset(seed=1)     # reproducible, general Policy gradient has high variance
 env = env.unwrapped
 
@@ -41,14 +42,14 @@ RL = PolicyGradient(
 
 for i_episode in range(1000):
 
-    observation = env.reset()
+    observation = env.reset()[0]
 
     while True:
         if RENDER: env.render()
 
         action = RL.choose_action(observation)
 
-        observation_, reward, done, info = env.step(action)     # reward = -1 in all cases
+        observation_, reward, done, info, extra_map = env.step(action)     # reward = -1 in all cases
 
         RL.store_transition(observation, action, reward)
 
