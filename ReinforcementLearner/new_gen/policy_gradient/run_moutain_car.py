@@ -40,7 +40,7 @@ RL = PolicyGradient(
     # output_graph=True,
 )
 
-for i_episode in range(1000):
+for i_episode in range(2000):
 
     observation = env.reset()[0]
 
@@ -75,3 +75,5 @@ for i_episode in range(1000):
             break
 
         observation = observation_
+
+RL.save('pg_net2k.pkl')

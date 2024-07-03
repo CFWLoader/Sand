@@ -22,7 +22,7 @@ class Actor(object):
             nn.Softmax()
         )
 
-        self.loss_func = optim.Adam(self.train_net.parameters(), lr=lr)
+        self.optim = optim.Adam(self.train_net.parameters(), lr=lr)
 
     def learn(self, s, a, td):
         # s, a 用于产生 Gradient ascent 的方向,
@@ -30,6 +30,7 @@ class Actor(object):
         new_dataform = s[np.newaxis, :]
         probs = self.train_net.forward(new_dataform)
         log_prob = torch.log(probs)
+        exp_v = log_prob * td
 
     def choose_action(self, s):
         # 根据 s 选 行为 a
