@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from torch import nn, optim
 
 MAX_EPISODES = 200
@@ -13,13 +14,35 @@ BATCH_SIZE = 32
 ###############################  DDPG  ####################################
 
 
+class DDPGCritic(nn.Module):
+
+    def __init__(self, s_dim, a_dim, out_dim, **kwargs):
+        super().__init__(kwargs)
+        self.ws = torch.ones([s_dim, out_dim]).cuda()
+        self.wa = torch.ones([a_dim, out_dim]).cuda()
+        self.b1 = torch.ones([out_dim]).cuda()
+
+    def forward(self, in_state, in_action):
+        ten_s = torch.Tensor(in_state).cuda()
+        ten_a = torch.Tensor(in_action).cuda()
+        sm = torch.matmul(ten_s, self.ws)
+        am = torch.matmul(ten_a, self.wa)
+        return (sm + am + self.b1).relu()
+
+
 class DeepDeterministicPolicyGradient(object):
     def __init__(self, a_dim, s_dim, a_bound, **kwargs):
         self.memory = np.zeros((MEMORY_CAPACITY, s_dim * 2 + a_dim + 1), dtype=np.float32)
         self.pointer = 0
 
         self.a_dim, self.s_dim, self.a_bound = a_dim, s_dim, a_bound,
-
+        self.l1hidden_n = 30
+        # Actor
+        self.eval_actor = self.build_actor(self.s_dim, self.a_dim, self.l1hidden_n)
+        self.target_actor = self.build_actor(self.s_dim, self.a_dim, self.l1hidden_n)
+        # Critic
+        self.eval_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
+        self.target_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
         # ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)          # soft replacement
 
     def choose_action(self, s):
@@ -39,12 +62,12 @@ class DeepDeterministicPolicyGradient(object):
         self.memory[index, :] = transition
         self.pointer += 1
 
-    def build_actor(self, n_features, n_actions, l1units=30, reuse=None, custom_getter=None):
+    def build_actor(self, n_features, n_actions, l1units=30):
         layer1 = nn.Linear(n_features, l1units)
         act_layer = nn.Linear(l1units, n_actions)
         return nn.Sequential(layer1, nn.ReLU(), act_layer, nn.Tanh())
 
-    def build_critic(self, n_features, n_actions, l1units=30, reuse=None, custom_getter=None):
+    def build_critic(self, n_features, n_actions, l1units=30):
         pass
 
 
