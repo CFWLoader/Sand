@@ -17,10 +17,16 @@ BATCH_SIZE = 32
 class DDPGCritic(nn.Module):
 
     def __init__(self, s_dim, a_dim, out_dim, **kwargs):
-        super().__init__(kwargs)
-        self.ws = torch.ones([s_dim, out_dim]).cuda()
-        self.wa = torch.ones([a_dim, out_dim]).cuda()
-        self.b1 = torch.ones([out_dim]).cuda()
+        super().__init__(**kwargs)
+        self.ws = torch.ones(s_dim, out_dim, requires_grad=True).cuda()
+        self.wa = torch.ones(a_dim, out_dim, requires_grad=True).cuda()
+        self.b1 = torch.ones(out_dim, requires_grad=True).cuda()
+        self.wsp = nn.Parameter(self.ws)
+        self.wap = nn.Parameter(self.wa)
+        self.b1p = nn.Parameter(self.b1)
+        self.register_parameter('state_weights', self.wsp)
+        self.register_parameter('action_weights', self.wap)
+        self.register_parameter('sa_bias', self.b1p)
 
     def forward(self, in_state, in_action):
         ten_s = torch.Tensor(in_state).cuda()
