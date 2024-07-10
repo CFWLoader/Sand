@@ -14,26 +14,30 @@ BATCH_SIZE = 32
 ###############################  DDPG  ####################################
 
 
-class DDPGCritic(nn.Module):
-
-    def __init__(self, s_dim, a_dim, out_dim, **kwargs):
-        super().__init__(**kwargs)
-        self.ws = torch.ones(s_dim, out_dim, requires_grad=True).cuda()
-        self.wa = torch.ones(a_dim, out_dim, requires_grad=True).cuda()
-        self.b1 = torch.ones(out_dim, requires_grad=True).cuda()
-        self.wsp = nn.Parameter(self.ws)
-        self.wap = nn.Parameter(self.wa)
-        self.b1p = nn.Parameter(self.b1)
-        self.register_parameter('state_weights', self.wsp)
-        self.register_parameter('action_weights', self.wap)
-        self.register_parameter('sa_bias', self.b1p)
-
-    def forward(self, in_state, in_action):
-        ten_s = torch.Tensor(in_state).cuda()
-        ten_a = torch.Tensor(in_action).cuda()
-        sm = torch.matmul(ten_s, self.ws)
-        am = torch.matmul(ten_a, self.wa)
-        return (sm + am + self.b1).relu()
+# class DDPGCritic(nn.Module):
+#
+#     def __init__(self, s_dim, a_dim, out_dim, **kwargs):
+#         super().__init__(**kwargs)
+#         self.ws = torch.ones(s_dim, out_dim, requires_grad=True).cuda()
+#         # self.wa = torch.ones(a_dim, out_dim, requires_grad=True).cuda()
+#         self.b1 = torch.ones(out_dim, requires_grad=True).cuda()
+#         nn.init.normal_(self.ws, 0, 0.1)
+#         # nn.init.normal_(self.wa, 0, 0.1)
+#         nn.init.constant_(self.b1, 0.1)
+#         self.wsp = nn.Parameter(self.ws)
+#         # self.wap = nn.Parameter(self.wa)
+#         self.b1p = nn.Parameter(self.b1)
+#         self.register_parameter('state_weights', self.wsp)
+#         # self.register_parameter('action_weights', self.wap)
+#         self.register_parameter('sa_bias', self.b1p)
+#
+#     def forward(self, in_state, in_action):
+#         ten_s = torch.Tensor(in_state).cuda()
+#         ten_a = torch.Tensor(in_action).cuda()
+#         sm = torch.matmul(ten_s, self.ws)
+#         # am = torch.matmul(ten_a, self.wa)
+#         # return (sm + am + self.b1).relu()
+#         return (sm + self.b1).relu()
 
 
 class DeepDeterministicPolicyGradient(object):
@@ -47,8 +51,10 @@ class DeepDeterministicPolicyGradient(object):
         self.eval_actor = self.build_actor(self.s_dim, self.a_dim, self.l1hidden_n)
         self.target_actor = self.build_actor(self.s_dim, self.a_dim, self.l1hidden_n)
         # Critic
-        self.eval_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
-        self.target_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
+        # self.eval_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
+        # self.target_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
+        self.eval_critic = self.build_critic(self.s_dim, self.a_dim, self.l1hidden_n)
+        self.target_critic = self.build_critic(self.s_dim, self.a_dim, self.l1hidden_n)
         # ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)          # soft replacement
 
     def choose_action(self, s):
@@ -69,12 +75,26 @@ class DeepDeterministicPolicyGradient(object):
         self.pointer += 1
 
     def build_actor(self, n_features, n_actions, l1units=30):
-        layer1 = nn.Linear(n_features, l1units)
-        act_layer = nn.Linear(l1units, n_actions)
+        layer1 = nn.Linear(n_features, l1units).cuda()
+        nn.init.normal_(layer1.weight.data, 0, 0.1)
+        nn.init.constant_(layer1.bias.data, 0.1)
+        act_layer = nn.Linear(l1units, n_actions).cuda()
+        nn.init.normal_(act_layer.weight.data, 0, 0.1)
+        nn.init.constant_(act_layer.bias.data, 0.1)
         return nn.Sequential(layer1, nn.ReLU(), act_layer, nn.Tanh())
 
     def build_critic(self, n_features, n_actions, l1units=30):
-        pass
+        layer1 = nn.Linear(n_features + n_actions, l1units).cuda()
+        nn.init.normal_(layer1.weight.data, 0, 0.1)
+        nn.init.constant_(layer1.bias.data, 0.1)
+        q_score = nn.Linear(l1units, 1).cuda()
+        nn.init.normal_(q_score.weight.data, 0, 0.1)
+        nn.init.constant_(q_score.bias.data, 0.1)
+        return nn.Sequential(layer1, nn.ReLU(), q_score)
+        # layer1 = nn.Linear(n_features + n_actions, l1units).cuda()
+        # nn.init.constant_(layer1.weight.data, 1)
+        # nn.init.constant_(layer1.bias.data, 1)
+        # return layer1
 
 
 ###############################  training  ####################################
