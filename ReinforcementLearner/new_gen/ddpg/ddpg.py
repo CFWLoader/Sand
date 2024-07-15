@@ -1,11 +1,10 @@
 import numpy as np
-import torch
-from torch import nn, optim
+from torch import nn, optim, Tensor, hstack
 
 MAX_EPISODES = 200
 MAX_EP_STEPS = 200
-LR_A = 0.001    # learning rate for actor
-LR_C = 0.002    # learning rate for critic
+# LR_A = 0.001    # learning rate for actor
+# LR_C = 0.002    # learning rate for critic
 GAMMA = 0.9     # reward discount
 TAU = 0.01      # soft replacement
 MEMORY_CAPACITY = 10000
@@ -41,7 +40,7 @@ BATCH_SIZE = 32
 
 
 class DeepDeterministicPolicyGradient(object):
-    def __init__(self, a_dim, s_dim, a_bound, **kwargs):
+    def __init__(self, a_dim, s_dim, a_bound, lr_actor=0.001, lr_critic=0.002, **kwargs):
         self.memory = np.zeros((MEMORY_CAPACITY, s_dim * 2 + a_dim + 1), dtype=np.float32)
         self.pointer = 0
 
@@ -50,23 +49,36 @@ class DeepDeterministicPolicyGradient(object):
         # Actor
         self.eval_actor = self.build_actor(self.s_dim, self.a_dim, self.l1hidden_n)
         self.target_actor = self.build_actor(self.s_dim, self.a_dim, self.l1hidden_n)
+        self.actor_train = optim.Adam(self.eval_actor.parameters(), lr=lr_actor)
         # Critic
         # self.eval_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
         # self.target_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
         self.eval_critic = self.build_critic(self.s_dim, self.a_dim, self.l1hidden_n)
         self.target_critic = self.build_critic(self.s_dim, self.a_dim, self.l1hidden_n)
+        self.critic_train = optim.Adam(self.eval_critic.parameters(), lr=lr_critic)
         # ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)          # soft replacement
 
     def choose_action(self, s):
-        pass
+        fit_form = Tensor(s[np.newaxis, :]).cuda()
+        predict_data = self.eval_actor.forward(fit_form).detach().cpu()
+        return predict_data.to_numpy()
 
     def learn(self):
+        # @ToBeFill actor/critic target的参数更新，soft的方法为衰变+eval的值，hard为直接替换
         indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)
         bt = self.memory[indices, :]
-        bs = bt[:, :self.s_dim]
-        ba = bt[:, self.s_dim: self.s_dim + self.a_dim]
-        br = bt[:, -self.s_dim - 1: -self.s_dim]
-        bs_ = bt[:, -self.s_dim:]
+        bs = Tensor(bt[:, :self.s_dim]).cuda()
+        ba = Tensor(bt[:, self.s_dim: self.s_dim + self.a_dim]).cuda()
+        br = Tensor(bt[:, -self.s_dim - 1: -self.s_dim]).cuda()
+        bs_ = Tensor(bt[:, -self.s_dim:]).cuda()
+        # train actor
+        eval_act = self.eval_actor.forward(bs)
+        evact_det = eval_act.detach()
+        eval_qval = self.eval_critic.forward(hstack((bs, evact_det)))
+        actor_loss = -eval_qval.sum()
+        self.actor_train.zero_grad()
+        actor_loss.backward()
+        self.actor_train.step()
 
     def store_transition(self, s, a, r, s_):
         transition = np.hstack((s, a, [r], s_))
