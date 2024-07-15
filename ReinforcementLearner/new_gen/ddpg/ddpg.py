@@ -5,10 +5,10 @@ MAX_EPISODES = 200
 MAX_EP_STEPS = 200
 # LR_A = 0.001    # learning rate for actor
 # LR_C = 0.002    # learning rate for critic
-GAMMA = 0.9     # reward discount
-TAU = 0.01      # soft replacement
-MEMORY_CAPACITY = 10000
-BATCH_SIZE = 32
+# GAMMA = 0.9     # reward discount
+# TAU = 0.01      # soft replacement
+# MEMORY_CAPACITY = 10000
+# BATCH_SIZE = 32
 
 ###############################  DDPG  ####################################
 
@@ -40,11 +40,15 @@ BATCH_SIZE = 32
 
 
 class DeepDeterministicPolicyGradient(object):
-    def __init__(self, a_dim, s_dim, a_bound, lr_actor=0.001, lr_critic=0.002, **kwargs):
-        self.memory = np.zeros((MEMORY_CAPACITY, s_dim * 2 + a_dim + 1), dtype=np.float32)
+    def __init__(self, a_dim, s_dim, a_bound, lr_actor=0.001, lr_critic=0.002, reward_discount= 0.9, decay_rate=0.01, memory_capacity=10000, batch_size=32, **kwargs):
+        self.memory = np.zeros((memory_capacity, s_dim * 2 + a_dim + 1), dtype=np.float32)
         self.pointer = 0
 
-        self.a_dim, self.s_dim, self.a_bound = a_dim, s_dim, a_bound,
+        self.a_dim, self.s_dim, self.a_bound = a_dim, s_dim, a_bound
+        self.decay_rate = decay_rate
+        self.reward_discount = reward_discount
+        self.memory_capacity = memory_capacity
+        self.batch_size = batch_size
         self.l1hidden_n = 30
         # Actor
         self.eval_actor = self.build_actor(self.s_dim, self.a_dim, self.l1hidden_n)
@@ -55,34 +59,43 @@ class DeepDeterministicPolicyGradient(object):
         # self.target_critic = DDPGCritic(self.s_dim, self.a_dim, self.l1hidden_n)
         self.eval_critic = self.build_critic(self.s_dim, self.a_dim, self.l1hidden_n)
         self.target_critic = self.build_critic(self.s_dim, self.a_dim, self.l1hidden_n)
+        self.critic_loss = nn.MSELoss()
         self.critic_train = optim.Adam(self.eval_critic.parameters(), lr=lr_critic)
         # ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)          # soft replacement
 
     def choose_action(self, s):
         fit_form = Tensor(s[np.newaxis, :]).cuda()
         predict_data = self.eval_actor.forward(fit_form).detach().cpu()
-        return predict_data.to_numpy()
+        return predict_data.numpy().squeeze(axis=1)
 
     def learn(self):
         # @ToBeFill actor/critic target的参数更新，soft的方法为衰变+eval的值，hard为直接替换
-        indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)
+        indices = np.random.choice(self.memory_capacity, size=self.batch_size)
         bt = self.memory[indices, :]
         bs = Tensor(bt[:, :self.s_dim]).cuda()
         ba = Tensor(bt[:, self.s_dim: self.s_dim + self.a_dim]).cuda()
         br = Tensor(bt[:, -self.s_dim - 1: -self.s_dim]).cuda()
         bs_ = Tensor(bt[:, -self.s_dim:]).cuda()
-        # train actor
+        # train actor first
+        # actor的网络不能这样直接更新，可能要从critic网络取梯度出来
         eval_act = self.eval_actor.forward(bs)
-        evact_det = eval_act.detach()
-        eval_qval = self.eval_critic.forward(hstack((bs, evact_det)))
+        eval_qval = self.eval_critic.forward(hstack((bs, ba)))
         actor_loss = -eval_qval.sum()
         self.actor_train.zero_grad()
         actor_loss.backward()
         self.actor_train.step()
+        # train critic
+        target_act = self.target_actor.forward(bs_).detach()
+        target_qval = self.target_critic.forward(hstack((bs_, target_act))).detach()
+        q_target = br + self.reward_discount * target_qval
+        td_error = self.critic_loss(eval_qval, q_target)
+        self.critic_train.zero_grad()
+        td_error.backward()
+        self.critic_train.step()
 
     def store_transition(self, s, a, r, s_):
         transition = np.hstack((s, a, [r], s_))
-        index = self.pointer % MEMORY_CAPACITY  # replace the old memory with new memory
+        index = self.pointer % self.memory_capacity  # replace the old memory with new memory
         self.memory[index, :] = transition
         self.pointer += 1
 
