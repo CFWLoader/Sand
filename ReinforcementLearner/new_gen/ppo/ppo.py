@@ -1,4 +1,7 @@
+import enum
+
 import numpy as np
+import torch
 from torch import nn, optim, tensor, normal, distributions
 
 
@@ -11,13 +14,19 @@ class PPOActorOutLayer(nn.Module):
     def forward(self, s: tensor) -> distributions.normal.Normal:
         mu = self.mu_net.forward(2 * s)
         sigma = self.sigma_net.forward(s)
+        # @TODO 是直接返回参数，还是直接返回分布？
         nordist = distributions.normal.Normal(mu, nn.functional.softplus(sigma))
         return nordist
         # return normal(mu.tanh(), nn.functional.softplus(sigma))
 
 
+class PenaltyMethodName(enum.Enum):
+    KL_PENALTY = 1
+    CLIP = 2
+
+
 class DivergenceSmoothMethodConfig:
-    def __init__(self, name):
+    def __init__(self, name: PenaltyMethodName):
         self.name = name
         # KL penalty
         self.kl_target = 0.01
@@ -39,11 +48,13 @@ class ProximalPolicyOptimization:
                  update_steps_critic=10,
                  actor_l1_hidden=100,
                  critic_l1_hidden=100,
-                 dsmc=DivergenceSmoothMethodConfig('kl_pen')
+                 dsmc=DivergenceSmoothMethodConfig(PenaltyMethodName.KL_PENALTY)
                  ):
         self.a_dim = a_dim
         self.s_dim = s_dim
         self.a_bound = a_bound
+        self.update_steps_actor = update_steps_actor
+        self.update_steps_critic = update_steps_critic
         self.critic_net = self.build_critic(self.s_dim, critic_l1_hidden)
         self.pi_net = self.build_actor(self.s_dim, self.a_dim, actor_l1_hidden)
         self.old_pi_net = self.build_actor(self.s_dim, self.a_dim, actor_l1_hidden)
@@ -58,6 +69,9 @@ class ProximalPolicyOptimization:
         discounted_rw = tensor(r).cuda()
         # update critic
         adv = self.update_critic(input_state, discounted_rw)
+        self.update_actor(input_state, took_action, adv)
+        for _ in range(self.update_steps_critic):
+            self.update_critic(input_state, discounted_rw)
 
     def update_critic(self, in_state: tensor, discounted_rw: tensor) -> tensor:
         critic_out = self.critic_net.forward(in_state)
@@ -69,7 +83,45 @@ class ProximalPolicyOptimization:
         return advantages.detach()
 
     def update_actor(self, in_state: tensor, in_action: tensor, adv_val: tensor):
-        pass
+        if self.dsmc.name == PenaltyMethodName.KL_PENALTY:
+            kl_mean = self.dsmc.kl_target
+            for _ in range(self.update_steps_actor):
+                kl_mean = self.update_actor_net(in_state, in_action, adv_val)
+                if kl_mean > 4 * self.dsmc.kl_target:
+                    break
+            if kl_mean < self.dsmc.kl_target / 1.5:
+                self.dsmc.lam /= 2
+            elif kl_mean > self.dsmc.kl_target * 1.5:
+                self.dsmc.lam *= 2
+            self.dsmc.lam = np.clip(self.dsmc.lam, 1e-4, 10)
+        elif self.dsmc.name == PenaltyMethodName.CLIP:
+            for _ in range(self.update_steps_actor):
+                self.update_actor_net(in_state, in_action, adv_val)
+        else:
+            pass
+
+    def update_actor_net(self, in_state: tensor, in_action: tensor, adv_val: tensor):
+        pi_dist: distributions.normal.Normal = self.pi_net.forward(in_state)
+        old_pi_dist: distributions.normal.Normal = self.old_pi_net.forward(in_state).detach()
+        # @TODO torch对应的用法？
+        ratio: tensor = pi_dist.prob(in_action) / (old_pi_dist.prob(in_action) + 1e-5)
+        surrogate = ratio * adv_val
+        return_pack = None
+        if self.dsmc.name == PenaltyMethodName.KL_PENALTY:
+            torchlam = self.dsmc.lam
+            kl_pen = distributions.kl_divergence(old_pi_dist, pi_dist)
+            kl_mean = kl_pen.mean()
+            actor_loss = -((surrogate - torchlam * kl_pen).mean())
+            return_pack = kl_mean.detach()
+        elif self.dsmc.name == PenaltyMethodName.CLIP:
+            clipped = ratio.clamp(1. - self.dsmc.epsilon, 1. + self.dsmc.epsilon) * adv_val
+            actor_loss = -torch.min(surrogate, clipped).mean()
+        else:
+            actor_loss = None
+        self.actor_train.zero_grad()
+        actor_loss.backward()
+        self.actor_train.step()
+        return return_pack
 
     def choose_action(self, s):
         s_input = tensor(s[np.newaxis, :]).cuda()
@@ -80,9 +132,9 @@ class ProximalPolicyOptimization:
 
     def get_v(self, s):
         # 算 state value
-        # if s.ndim < 2: s = s[np.newaxis, :]
-        # return self.sess.run(self.v, {self.tfs: s})[0, 0]
-        pass
+        in_state = tensor(s[np.newaxis, :]).cuda() if s.ndim < 2 else tensor(s).cuda()
+        run_result = self.critic_net.forward(in_state)
+        return run_result.detach().cpu().numpy()[0, 0]
 
     def overwrite_old_net(self):
         self.old_pi_net.load_state_dict(self.pi_net.state_dict())
