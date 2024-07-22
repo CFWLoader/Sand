@@ -39,7 +39,6 @@ class ProximalPolicyOptimization:
     def __init__(self,
                  a_dim,
                  s_dim,
-                 a_bound,
                  lr_actor=0.0001,
                  lr_critic=0.0002,
                  reward_discount=0.9,
@@ -52,7 +51,6 @@ class ProximalPolicyOptimization:
                  ):
         self.a_dim = a_dim
         self.s_dim = s_dim
-        self.a_bound = a_bound
         self.update_steps_actor = update_steps_actor
         self.update_steps_critic = update_steps_critic
         self.critic_net = self.build_critic(self.s_dim, critic_l1_hidden)
