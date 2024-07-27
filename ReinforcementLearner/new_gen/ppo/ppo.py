@@ -11,13 +11,35 @@ class PPOActorOutLayer(nn.Module):
         self.mu_net = nn.Linear(num_l1_hidden, a_dim)
         self.sigma_net = nn.Linear(num_l1_hidden, a_dim)
 
-    def forward(self, s: tensor) -> distributions.normal.Normal:
+    def forward(self, s: tensor) -> tensor:
         mu = self.mu_net.forward(2 * s)
         sigma = self.sigma_net.forward(s)
-        # @TODO 是直接返回参数，还是直接返回分布？
         nordist = distributions.normal.Normal(mu, nn.functional.softplus(sigma))
-        return nordist
+        return nordist.sample(torch.Size((1,)))
         # return normal(mu.tanh(), nn.functional.softplus(sigma))
+
+
+class ProximalActor(nn.Module):
+    def __init__(self, s_dim, a_dim, num_l1_hidden, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.l1 = nn.Linear(s_dim, num_l1_hidden)
+        self.mu_net = nn.Linear(num_l1_hidden, a_dim)
+        self.sigma_net = nn.Linear(num_l1_hidden, a_dim)
+        # return nn.Sequential(l1, nn.ReLU(), norm_layer)
+        self.last_mu = None
+        self.last_sigma = None
+
+    def forward(self, s: tensor) -> tensor:
+        l1out = self.l1.forward(s)
+        mu = self.mu_net.forward(2 * l1out)
+        sigma = self.sigma_net.forward(l1out)
+        self.last_mu = mu.detach()
+        self.last_sigma = sigma.detach()
+        nordist = distributions.normal.Normal(mu, nn.functional.softplus(sigma))
+        return nordist.sample(torch.Size((1,)))
+
+    def get_distribution(self):
+        return distributions.normal.Normal(self.last_mu, nn.functional.softplus(self.last_sigma))
 
 
 class PenaltyMethodName(enum.Enum):
@@ -99,15 +121,17 @@ class ProximalPolicyOptimization:
             pass
 
     def update_actor_net(self, in_state: tensor, in_action: tensor, adv_val: tensor):
-        pi_dist: distributions.normal.Normal = self.pi_net.forward(in_state)
-        old_pi_dist: distributions.normal.Normal = self.old_pi_net.forward(in_state).detach()
-        # @TODO torch对应的用法？
-        ratio: tensor = pi_dist.prob(in_action) / (old_pi_dist.prob(in_action) + 1e-5)
+        pi_val: tensor = self.pi_net.forward(in_state)
+        old_pi_val: tensor = self.old_pi_net.forward(in_state).detach()
+        pi_dist = self.pi_net.get_distribution()
+        old_pi_dist = self.old_pi_net.get_distribution()
+        # @TODO Morvan用的prob
+        ratio: tensor = pi_dist.log_prob(in_action) / (old_pi_dist.log_prob(in_action) + 1e-5)
         surrogate = ratio * adv_val
         return_pack = None
         if self.dsmc.name == PenaltyMethodName.KL_PENALTY:
             torchlam = self.dsmc.lam
-            kl_pen = distributions.kl_divergence(old_pi_dist, pi_dist)
+            kl_pen = distributions.kl_divergence(old_pi_val, pi_val)
             kl_mean = kl_pen.mean()
             actor_loss = -((surrogate - torchlam * kl_pen).mean())
             return_pack = kl_mean.detach()
@@ -123,8 +147,8 @@ class ProximalPolicyOptimization:
 
     def choose_action(self, s):
         s_input = tensor(s[np.newaxis, :]).cuda()
-        norm_dist: distributions.normal.Normal = self.pi_net.forward(s_input).detach()
-        action_val = np.squeeze(norm_dist.sample().detach().cpu(), axis=0)
+        sam_res: tensor = self.pi_net.forward(s_input).detach()
+        action_val = np.squeeze(sam_res.detach().cpu(), axis=0)
         # a = self.sess.run(self.sample_op, {self.tfs: s})[0]
         return np.clip(action_val, -2, 2)
 
@@ -138,10 +162,11 @@ class ProximalPolicyOptimization:
         self.old_pi_net.load_state_dict(self.pi_net.state_dict())
 
     @staticmethod
-    def build_actor(s_dim, a_dim, num_l1_hidden):
-        l1 = nn.Linear(s_dim, num_l1_hidden)
-        norm_layer = PPOActorOutLayer(num_l1_hidden, a_dim)
-        return nn.Sequential(l1, nn.ReLU(), norm_layer)
+    def build_actor(s_dim, a_dim, num_l1_hidden) -> ProximalActor:
+        return ProximalActor(s_dim, a_dim, num_l1_hidden)
+        # l1 = nn.Linear(s_dim, num_l1_hidden)
+        # norm_layer = PPOActorOutLayer(num_l1_hidden, a_dim)
+        # return nn.Sequential(l1, nn.ReLU(), norm_layer)
 
     @staticmethod
     def build_critic(s_dim, num_l1_hidden):
