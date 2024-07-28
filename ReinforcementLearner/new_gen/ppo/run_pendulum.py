@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import gym
 
-from new_gen.ppo.ppo import ProximalPolicyOptimization, PenaltyMethodName
+from new_gen.ppo.ppo import ProximalPolicyOptimization, PenaltyMethodName, DivergenceSmoothMethodConfig
 
 EP_MAX = 1000
 EP_LEN = 200
