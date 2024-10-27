@@ -62,8 +62,8 @@ class ProximalPolicyOptimization:
     def __init__(self,
                  a_dim,
                  s_dim,
-                 lr_actor=0.0001,
-                 lr_critic=0.0002,
+                 lr_actor=0.01,
+                 lr_critic=0.02,
                  reward_discount=0.9,
                  batch_size=32,
                  update_steps_actor=10,
@@ -127,8 +127,7 @@ class ProximalPolicyOptimization:
         old_pi_val: tensor = self.old_pi_net.forward(in_state).detach()
         pi_dist = self.pi_net.get_distribution()
         old_pi_dist = self.old_pi_net.get_distribution()
-        # @TODO Morvan用的prob
-        ratio: tensor = pi_dist.log_prob(in_action) / (old_pi_dist.log_prob(in_action) + 1e-5)
+        ratio: tensor = torch.exp(pi_dist.log_prob(in_action)) / (torch.exp(old_pi_dist.log_prob(in_action)) + 1e-5)
         surrogate = ratio * adv_val
         return_pack = None
         if self.dsmc.name == PenaltyMethodName.KL_PENALTY:
