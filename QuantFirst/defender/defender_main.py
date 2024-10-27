@@ -9,7 +9,7 @@ from defender.signal_hunters.MA20Hunter import MA20Hunter
 
 def manual_way_plot():
     # 手动设置X轴方法
-    res_df = adata.stock.market.get_market(stock_code='300014', k_type=1, start_date='2024-01-01')
+    res_df = adata.stock.market.get_market(stock_code='300014', k_type=1, start_date='2023-01-01', end_date='2023-12-31')
     date_col = res_df['trade_date']
     xdate = [dtt.datetime.strptime(d, '%Y-%m-%d').date() for d in date_col]
     cls_price = res_df['close']
@@ -32,7 +32,7 @@ def auto_way_plot():
     # 自动设置X轴方法
     fig, ax = plt.subplots()
     ax.xaxis.set_major_formatter(mdates.AutoDateFormatter(ax.xaxis.get_major_locator()))
-    res_df = adata.stock.market.get_market(stock_code='300014', k_type=1, start_date='2024-01-01')
+    res_df = adata.stock.market.get_market(stock_code='300014', k_type=1, start_date='2023-01-01', end_date='2023-12-31')
     date_col = pd.to_datetime(res_df['trade_date'])
     cls_price = res_df['close']
     sig_hunter = MA20Hunter(res_df)
@@ -46,9 +46,34 @@ def auto_way_plot():
     plt.vlines(selldates, ymin=cls_price.min(), ymax=cls_price.max(), ls=':', colors='red', label='Sell out')
     plt.gcf().autofmt_xdate()
     plt.legend()
+    calculate_win_rate(cls_price, buyidx, sellidx)
     plt.show()
+
+def calculate_win_rate(day_prices: pd.Series, buyin_indicies: list, sellout_indices: list):
+    byidx = 0
+    slidx = 0
+    byopslen = len(buyin_indicies)
+    slopslen = len(sellout_indices)
+    optimes = 0
+    wintimes = 0
+    while True:
+        if byidx >= byopslen or slidx >= slopslen:
+            break
+        buydate = buyin_indicies[byidx]
+        selldate = sellout_indices[slidx]
+        if selldate < buydate:
+            slidx += 1
+            if slidx >= slopslen:
+                break
+            selldate = sellout_indices[slidx]
+        optimes += 1
+        byidx += 1
+        slidx += 1
+        if day_prices[buydate] < day_prices[selldate]:
+            wintimes += 1
+    print("Op times: %d, Win times: %d, Win rate: %f" % (optimes, wintimes, wintimes / optimes))
 
 if __name__ == '__main__':
     # res_df = adata.stock.info.all_code()
-    manual_way_plot()
-    # auto_way_plot()
+    # manual_way_plot()
+    auto_way_plot()
