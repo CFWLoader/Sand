@@ -32,7 +32,8 @@ def auto_way_plot():
     # 自动设置X轴方法
     fig, ax = plt.subplots()
     ax.xaxis.set_major_formatter(mdates.AutoDateFormatter(ax.xaxis.get_major_locator()))
-    res_df = adata.stock.market.get_market(stock_code='300014', k_type=1, start_date='2023-01-01', end_date='2023-12-31')
+    # res_df = adata.stock.market.get_market(stock_code='300014', k_type=1, start_date='2021-01-01', end_date='2021-12-31')
+    res_df = adata.stock.market.get_market(stock_code='60001', k_type=1, start_date='2024-01-01')
     date_col = pd.to_datetime(res_df['trade_date'])
     cls_price = res_df['close']
     sig_hunter = MA20Hunter(res_df)
@@ -46,16 +47,17 @@ def auto_way_plot():
     plt.vlines(selldates, ymin=cls_price.min(), ymax=cls_price.max(), ls=':', colors='red', label='Sell out')
     plt.gcf().autofmt_xdate()
     plt.legend()
-    calculate_win_rate(cls_price, buyidx, sellidx)
+    calculate_win_rate(cls_price, res_df['trade_date'], buyidx, sellidx)
     plt.show()
 
-def calculate_win_rate(day_prices: pd.Series, buyin_indicies: list, sellout_indices: list):
+def calculate_win_rate(day_prices: pd.Series, date_str_pst: pd.Series, buyin_indicies: list, sellout_indices: list):
     byidx = 0
     slidx = 0
     byopslen = len(buyin_indicies)
     slopslen = len(sellout_indices)
     optimes = 0
     wintimes = 0
+    plcross = 0
     while True:
         if byidx >= byopslen or slidx >= slopslen:
             break
@@ -69,9 +71,12 @@ def calculate_win_rate(day_prices: pd.Series, buyin_indicies: list, sellout_indi
         optimes += 1
         byidx += 1
         slidx += 1
-        if day_prices[buydate] < day_prices[selldate]:
+        prc_diff = day_prices[selldate] - day_prices[buydate]
+        plcross += prc_diff
+        if prc_diff > 0:
             wintimes += 1
-    print("Op times: %d, Win times: %d, Win rate: %f" % (optimes, wintimes, wintimes / optimes))
+        print('op B: %f(%s) -> S: %f(%s), PRC diff: %f' % (day_prices[buydate], date_str_pst[buydate], day_prices[selldate], date_str_pst[selldate], prc_diff))
+    print("Op times: %d, Win times: %d, Win rate: %f, P/C: %f" % (optimes, wintimes, wintimes / optimes, plcross))
 
 if __name__ == '__main__':
     # res_df = adata.stock.info.all_code()
