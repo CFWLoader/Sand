@@ -4,9 +4,13 @@ import pandas as pd
 class MA20Hunter(SignalHunter):
     def __init__(self, df_to_analysis: pd.DataFrame):
         super().__init__(df_to_analysis)
-        self.ma20trend = self.data_accessor.get_close_prices().rolling(20).mean()
+        self.ma20trend = None
+
+    def is_valid(self):
+        return super().is_valid() and (self.data_accessor.data_len() >= 20)
 
     def begin_analyze(self)->(list, list) :
+        self.ma20trend = self.data_accessor.get_close_prices().rolling(20).mean()
         # date_col = self.shadow_df['trade_date']
         cls_price = self.data_accessor.get_close_prices()
         begin_idx = 0

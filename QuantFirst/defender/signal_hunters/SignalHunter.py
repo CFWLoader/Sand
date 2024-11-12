@@ -4,9 +4,13 @@ from defender.TradeDataframeAccessor import TradeDataframeAccessor
 class SignalHunter(object):
     def __init__(self, df_to_analysis: pd.DataFrame):
         self.data_accessor = TradeDataframeAccessor(df_to_analysis)
+        self.cached_result = None
 
     def begin_analyze(self) -> (list, list):
         pass
+
+    def is_valid(self):
+        return self.data_accessor.is_valid()
 
     @staticmethod
     def calculate_win_rate(day_prices: pd.Series, date_str_pst: pd.Series, buyin_indicies: list,
@@ -48,12 +52,15 @@ class SignalHunter(object):
             # day_prices[buydate], date_str_pst[buydate], day_prices[selldate], date_str_pst[selldate], prc_diff))
         return optimes, wintimes, plcross, op_records
 
-    def get_trade_summary_of_strategy(self) -> ((list, list), (int, int, float, list)):
+    def get_trade_summary_of_strategy(self, force_refresh = False) -> ((list, list), (int, int, float, list)):
         """
         get summary of this strategy
         :return: (buy in index of this data, sell out index of this data), (see comment of calculate_win_rate())
         """
+        if (not force_refresh) and (self.cached_result is not None):
+            return self.cached_result
         buyidx, sellidx = self.begin_analyze()
         date_col = self.data_accessor.get_trade_dates()
         cls_price = self.data_accessor.get_close_prices()
-        return (buyidx, sellidx), self.calculate_win_rate(cls_price, date_col, buyidx, sellidx)
+        self.cached_result = (buyidx, sellidx), self.calculate_win_rate(cls_price, date_col, buyidx, sellidx)
+        return self.cached_result

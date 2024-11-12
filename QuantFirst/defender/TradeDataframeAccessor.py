@@ -7,6 +7,9 @@ class TradeDataframeAccessor:
     def data_len(self) -> int:
         return len(self.shadow_df)
 
+    def is_valid(self) -> bool:
+        return ('close' in self.shadow_df) and ('trade_date' in self.shadow_df)
+
     def get_close_prices(self) -> pd.Series:
         return self.shadow_df['close']
 
