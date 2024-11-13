@@ -1,3 +1,4 @@
+import csv
 from shutil import which
 
 import adata
@@ -74,6 +75,9 @@ if __name__ == '__main__':
     # res_df = adata.stock.info.all_code()
     # manual_way_plot()
     allastock = adata.stock.info.all_code()
+    windata_df = pd.DataFrame(columns=['stock_code', 'short_name', 'exchange', 'optimes', 'wintimes', 'profitcossratio'])
+    # windata_df.loc[len(windata_df)] = { 'stock_code': '114514', 'short_name': 'chouchou', 'exchange': 'sz', 'optimes': 1, 'wintimes': 1, 'profitcossratio': 0.33 }
+    # windata_df.loc[len(windata_df)] = { 'stock_code': '114515', 'short_name': 'chouchou', 'exchange': 'sz', 'optimes': 2, 'wintimes': 1, 'profitcossratio': 0.33 }
     for index, row in allastock.iterrows():
         stk_code = row['stock_code']
         sht_name = row['short_name']
@@ -83,6 +87,10 @@ if __name__ == '__main__':
             print('[%s(%s)] has no data, skip' % (sht_name, stk_code))
             continue
         (buyidx, sellidx), (optimes, wintimes, plcross, op_records)  = sig_hunter.get_trade_summary_of_strategy()
-        print("[%s(%s)]Op times: %d, Win times: %d, Win rate: %f, P/C: %f" % (sht_name, stk_code, optimes, wintimes, wintimes / optimes, plcross))
+        print("[%s(%s)]Op times: %d, Win times: %d, Win rate: %f, P/C: %f" % (sht_name, stk_code, optimes, wintimes, (wintimes / optimes) if optimes > 0 else 0, plcross))
+        windata_df.loc[len(windata_df)] = { 'stock_code': stk_code, 'short_name': sht_name, 'exchange': exchange, 'optimes': optimes, 'wintimes': wintimes, 'profitcossratio': plcross }
+    with open('eggs.csv', 'w', newline='', encoding='utf-8') as csvfile:
+        csvfile.writelines(windata_df.to_csv())
+        csvfile.close()
     # sig_hunter = take_test('000003', '2020-01-01')
 
