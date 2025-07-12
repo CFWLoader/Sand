@@ -1,7 +1,6 @@
 from numpy import dtype
 from stable_baselines3 import A2C, DDPG, PPO, TD3, SAC
 
-from src.bigshitmarketdownloader import BigShitMarketDownloader
 from src.bigshitmarketdataloader import BigShitMarketDataLoader
 from finrl.meta.preprocessor.preprocessors import FeatureEngineer, data_split
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
@@ -31,11 +30,11 @@ from finrl.config import (
 MY_TRAIN_START_DATE = '2015-01-01'
 MY_TRAIN_END_DATE = '2024-07-01'
 MY_TRADE_START_DATE = '2024-07-01'
-MY_TRADE_END_DATE = '2025-03-31'
+MY_TRADE_END_DATE = '2025-07-10'
 
 PREDICTION_ROOT = 'model_predictions'
 
-CONCERNED_TICKET_LIST = ['300014', '600011', '000977']
+CONCERNED_TICKET_LIST = ['300014', '600011', '000977', '000766', '002415', '600036' ]
 
 
 # def get_raw_dataset(cache_path):
@@ -49,51 +48,51 @@ CONCERNED_TICKET_LIST = ['300014', '600011', '000977']
 #         df.to_csv(cache_csv_path, encoding='utf-8')
 #     return df
 
-def get_dataset(use_cache=True):
-    # TRAIN_START_DATE = '2015-01-01'
-    # TRAIN_END_DATE = '2020-07-01'
-    # TRADE_START_DATE = '2020-07-01'
-    # TRADE_END_DATE = '2025-03-31'
-    check_and_make_directories([DATA_SAVE_DIR])
-    cache_csv_path = os.path.join(DATA_SAVE_DIR, "bsm%s_%s.csv" % (MY_TRAIN_START_DATE, MY_TRADE_END_DATE))
-    cache_fecsv_path = os.path.join(DATA_SAVE_DIR, "bsm_fe%s_%s.csv" % (MY_TRAIN_START_DATE, MY_TRADE_END_DATE))
-    processed_full = None
-    if use_cache and os.path.isfile(cache_fecsv_path):
-        processed_full = pd.read_csv(cache_fecsv_path, encoding='utf-8')
-    else:
-        df = BigShitMarketDataLoader.load(DATA_SAVE_DIR, MY_TRAIN_START_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST,
-                                          print_logs=False)  # get_raw_dataset(cache_csv_path)
-        df.sort_values(['date', 'tic'], ignore_index=True).head()
-        fe = FeatureEngineer(
-            use_technical_indicator=True,
-            tech_indicator_list=INDICATORS,
-            use_vix=False,
-            use_turbulence=True,
-            user_defined_feature=False)
-
-        processed = fe.preprocess_data(df)
-        list_ticker = processed["tic"].unique().tolist()
-        list_date = list(pd.date_range(processed['date'].min(), processed['date'].max()).astype(str))
-        combination = list(itertools.product(list_date, list_ticker))
-
-        processed_full = pd.DataFrame(combination, columns=["date", "tic"]).merge(processed, on=["date", "tic"],
-                                                                                  how="left")
-        processed_full = processed_full[processed_full['date'].isin(processed['date'])]
-        processed_full = processed_full.sort_values(['date', 'tic'])
-        processed_full = processed_full.fillna(0)
-        if use_cache:
-            processed_full.to_csv(cache_fecsv_path, encoding='utf-8')
-
-    processed_full.sort_values(['date', 'tic'], ignore_index=True).head(10)
-
-    mvo_df = processed_full.sort_values(['date', 'tic'], ignore_index=True)[['date', 'tic', 'close']]
-
-    train = data_split(processed_full, MY_TRAIN_START_DATE, MY_TRAIN_END_DATE)
-    trade = data_split(processed_full, MY_TRADE_START_DATE, MY_TRADE_END_DATE)
-    print(len(train))
-    print(len(trade))
-
-    return train, trade
+# def get_dataset(use_cache=True):
+#     # TRAIN_START_DATE = '2015-01-01'
+#     # TRAIN_END_DATE = '2020-07-01'
+#     # TRADE_START_DATE = '2020-07-01'
+#     # TRADE_END_DATE = '2025-03-31'
+#     check_and_make_directories([DATA_SAVE_DIR])
+#     cache_csv_path = os.path.join(DATA_SAVE_DIR, "bsm%s_%s.csv" % (MY_TRAIN_START_DATE, MY_TRADE_END_DATE))
+#     cache_fecsv_path = os.path.join(DATA_SAVE_DIR, "bsm_fe%s_%s.csv" % (MY_TRAIN_START_DATE, MY_TRADE_END_DATE))
+#     processed_full = None
+#     if use_cache and os.path.isfile(cache_fecsv_path):
+#         processed_full = pd.read_csv(cache_fecsv_path, encoding='utf-8')
+#     else:
+#         df = BigShitMarketDataLoader.load(DATA_SAVE_DIR, MY_TRAIN_START_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST,
+#                                           print_logs=False)  # get_raw_dataset(cache_csv_path)
+#         df.sort_values(['date', 'tic'], ignore_index=True).head()
+#         fe = FeatureEngineer(
+#             use_technical_indicator=True,
+#             tech_indicator_list=INDICATORS,
+#             use_vix=False,
+#             use_turbulence=True,
+#             user_defined_feature=False)
+#
+#         processed = fe.preprocess_data(df)
+#         list_ticker = processed["tic"].unique().tolist()
+#         list_date = list(pd.date_range(processed['date'].min(), processed['date'].max()).astype(str))
+#         combination = list(itertools.product(list_date, list_ticker))
+#
+#         processed_full = pd.DataFrame(combination, columns=["date", "tic"]).merge(processed, on=["date", "tic"],
+#                                                                                   how="left")
+#         processed_full = processed_full[processed_full['date'].isin(processed['date'])]
+#         processed_full = processed_full.sort_values(['date', 'tic'])
+#         processed_full = processed_full.fillna(0)
+#         if use_cache:
+#             processed_full.to_csv(cache_fecsv_path, encoding='utf-8')
+#
+#     processed_full.sort_values(['date', 'tic'], ignore_index=True).head(10)
+#
+#     mvo_df = processed_full.sort_values(['date', 'tic'], ignore_index=True)[['date', 'tic', 'close']]
+#
+#     train = data_split(processed_full, MY_TRAIN_START_DATE, MY_TRAIN_END_DATE)
+#     trade = data_split(processed_full, MY_TRADE_START_DATE, MY_TRADE_END_DATE)
+#     print(len(train))
+#     print(len(trade))
+#
+#     return train, trade
 
 
 # res_df = adata.stock.market.get_market(stock_code='300014', k_type=1, start_date='2023-01-01', end_date='2023-12-31')
@@ -110,7 +109,7 @@ def get_env_kwargs(input_df):
     num_stock_shares = [0] * stock_dimension
 
     env_kwargs = {
-        "hmax": 100,
+        "hmax": 100000,
         "initial_amount": 1000000,
         "num_stock_shares": num_stock_shares,
         "buy_cost_pct": buy_cost_list,
@@ -201,12 +200,14 @@ def load_trained_models(model_names: set[str]) -> dict[str, BaseAlgorithm]:
 
 
 if __name__ == '__main__':
-    train_df, trade_df = get_dataset()
+    bsm_loader = BigShitMarketDataLoader('exp1', MY_TRAIN_START_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST)
+    train_df, trade_df = bsm_loader.load_finrl_format_data(MY_TRAIN_END_DATE, MY_TRADE_START_DATE)
+    # train_df, trade_df = get_dataset()
     print(train_df.tic.unique())
-    # trained_models = train_models(train_df, {'a2c', 'ddpg', 'ppo', 'td3', 'sac'})
-    # for model_name, trained_model in trained_models.items():
-    #     trained_model.save(os.path.join(TRAINED_MODEL_DIR, model_name + '-sample1.zip'))
-    trained_models = load_trained_models({'a2c', 'ddpg', 'ppo', 'td3', 'sac'})
+    trained_models = train_models(train_df, {'a2c', 'ddpg', 'ppo', 'td3', 'sac'})
+    for model_name, trained_model in trained_models.items():
+        trained_model.save(os.path.join(TRAINED_MODEL_DIR, model_name + '-sample1.zip'))
+    # trained_models = load_trained_models({'a2c', 'ddpg', 'ppo', 'td3', 'sac'})
     env_kwargs = get_env_kwargs(train_df)
     e_trade_gym = StockTradingEnv(df=trade_df, turbulence_threshold=70, risk_indicator_col='turbulence', **env_kwargs)
     result_df = None
@@ -215,8 +216,8 @@ if __name__ == '__main__':
             model=trained_model,
             environment=e_trade_gym)
         check_and_make_directories([os.path.join(PREDICTION_ROOT, model_name)])
-        # df_account_value.to_csv(os.path.join(PREDICTION_ROOT, model_name, "action_values-1.csv"))
-        # df_actions.to_csv(os.path.join(PREDICTION_ROOT, model_name, "actions-1.csv"))
+        df_account_value.to_csv(os.path.join(PREDICTION_ROOT, model_name, "action_values-1.csv"))
+        df_actions.to_csv(os.path.join(PREDICTION_ROOT, model_name, "actions-1.csv"))
         if result_df is None:
             result_df = df_account_value.set_index(df_account_value.columns[0])
             result_df = result_df.rename(columns={result_df.columns[0]: model_name})

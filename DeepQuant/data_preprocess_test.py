@@ -1,4 +1,3 @@
-from src.bigshitmarketdownloader import BigShitMarketDownloader
 from src.bigshitmarketdataloader import BigShitMarketDataLoader
 import pandas as pd
 import os
@@ -24,8 +23,11 @@ MY_TRADE_END_DATE = '2025-03-31'
 
 PREDICTION_ROOT='model_predictions'
 
-CONCERNED_TICKET_LIST=['300014', '600011', '000977']
+CONCERNED_TICKET_LIST=['300014', '600011', '000977', '000766', '002415', '600036' ]
+# CONCERNED_TICKET_LIST=['300014', '600011', '000977']
 
 if __name__ == '__main__':
-    cache_csv_path = BigShitMarketDataLoader.load(DATA_SAVE_DIR, MY_TRAIN_START_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST)
-    print(cache_csv_path.tic.unique())
+    bsm_loader = BigShitMarketDataLoader('exp1', MY_TRAIN_START_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST)
+    # raw_df = bsm_loader.load()
+    train_df, trade_df = bsm_loader.load_finrl_format_data(MY_TRAIN_END_DATE, MY_TRADE_START_DATE)
+    # print(cache_csv_path.tic.unique())
