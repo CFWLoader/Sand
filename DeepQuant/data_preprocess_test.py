@@ -17,9 +17,9 @@ from finrl.config import (
 )
 
 MY_TRAIN_START_DATE = '2015-01-01'
-MY_TRAIN_END_DATE = '2020-07-01'
-MY_TRADE_START_DATE = '2020-07-01'
-MY_TRADE_END_DATE = '2025-03-31'
+MY_TRAIN_END_DATE = '2024-07-01'
+MY_TRADE_START_DATE = '2024-07-01'
+MY_TRADE_END_DATE = '2025-07-10'
 
 PREDICTION_ROOT='model_predictions'
 
@@ -30,4 +30,7 @@ if __name__ == '__main__':
     bsm_loader = BigShitMarketDataLoader('exp1', MY_TRAIN_START_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST)
     # raw_df = bsm_loader.load()
     train_df, trade_df = bsm_loader.load_finrl_format_data(MY_TRAIN_END_DATE, MY_TRADE_START_DATE)
+    mvo_result = bsm_loader.compute_mvo()
+    mvo_result.rename({ 'Mean Var': 'account_value' }, inplace=True)
+    mvo_result.to_csv(os.path.join('exp1', 'mvo_result.csv'), encoding='utf-8')
     # print(cache_csv_path.tic.unique())

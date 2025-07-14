@@ -1,8 +1,12 @@
 from finrl.meta.preprocessor.preprocessors import FeatureEngineer, data_split
 import pandas as pd
+import numpy as np
 import adata
 import itertools
 import os
+from scipy import optimize
+from scipy.optimize import linprog
+from pypfopt.efficient_frontier import EfficientFrontier
 
 class BigShitMarketDataLoader(object):
 
@@ -42,6 +46,10 @@ class BigShitMarketDataLoader(object):
         # internal variables
         self.raw_data = None
         self.fixed_raw_data = None
+        self.processed_full_data = None
+        self.finrl_train = None
+        self.finrl_trade = None
+        self.mvo_result = None
         # init ops
         BigShitMarketDataLoader.check_and_make_directories([self.dataset_dir])
 
@@ -49,11 +57,11 @@ class BigShitMarketDataLoader(object):
         if self.fix_missing_data and self.fixed_raw_data is None or self.raw_data is None:
             self.load()
         self.preprocess_indicators_and_cache()
-        train = data_split(self.processed_full_data, self.dataset_start_date, train_end_date)
-        trade = data_split(self.processed_full_data, trade_start_date, self.dataset_end_date)
+        self.finrl_train = data_split(self.processed_full_data, self.dataset_start_date, train_end_date)
+        self.finrl_trade = data_split(self.processed_full_data, trade_start_date, self.dataset_end_date)
         # print(len(train))
         # print(len(trade))
-        return train, trade
+        return self.finrl_train, self.finrl_trade
 
     def load(self):
         self.load_raw_data_only()
@@ -213,7 +221,8 @@ class BigShitMarketDataLoader(object):
         cache_fecsv_path = os.path.join(self.dataset_dir,
                                         "bsm_fe%s_%s.csv" % (self.dataset_start_date, self.dataset_end_date))
         if os.path.isfile(cache_fecsv_path):
-            return pd.read_csv(cache_fecsv_path, encoding='utf-8')
+            self.processed_full_data = self.load_cached_dataset(cache_fecsv_path)
+            return self.processed_full_data
         local_process_df = self.fixed_raw_data if self.fix_missing_data else self.raw_data
         local_process_df.sort_values(['date', 'tic'], ignore_index=True).head()
         fe = FeatureEngineer(
@@ -241,7 +250,130 @@ class BigShitMarketDataLoader(object):
         return self.processed_full_data
         # mvo_df = processed_full.sort_values(['date', 'tic'], ignore_index=True)[['date', 'tic', 'close']]
 
+    def compute_mvo(self) -> pd.DataFrame:
+        '''
+        不知道这段用来做什么的
+        mvo_df = self.processed_full_data.sort_values(['date', 'tic'], ignore_index=True)[['date', 'tic', 'close']]
+        fst = mvo_df
+        fst = fst.iloc[0 * 29:0 * 29 + 29, :]
+        tic = fst['tic'].tolist()
+
+        mvo = pd.DataFrame()
+
+        for k in range(len(tic)):
+            mvo[tic[k]] = 0
+
+        for i in range(mvo_df.shape[0] // 29):
+            n = mvo_df
+            n = n.iloc[i * 29:i * 29 + 29, :]
+            date = n['date'][i * 29]
+            mvo.loc[date] = n['close'].tolist()
+        '''
+
+        # extract asset prices
+        StockData = self.finrl_train.pivot(index="date", columns="tic", values="close")
+        TradeData = self.finrl_trade.pivot(index="date", columns="tic", values="close")
+        TradeData.to_numpy()
+
+        # compute asset returns
+        arStockPrices = np.asarray(StockData)
+        [Rows, Cols] = arStockPrices.shape
+        arReturns = BigShitMarketDataLoader.StockReturnsComputing(arStockPrices, Rows, Cols)
+
+        # compute mean returns and variance covariance matrix of returns
+        meanReturns = np.mean(arReturns, axis=0)
+        covReturns = np.cov(arReturns, rowvar=False)
+
+        # set precision for printing results
+        np.set_printoptions(precision=3, suppress=True)
+
+        # display mean returns and variance-covariance matrix of returns
+        print('Mean returns of assets in k-portfolio 1\n', meanReturns)
+        print('Variance-Covariance matrix of returns\n', covReturns)
+
+        ef_mean = EfficientFrontier(meanReturns, covReturns, weight_bounds=(0, 0.5))
+        raw_weights_mean = ef_mean.max_sharpe()
+        cleaned_weights_mean = ef_mean.clean_weights()
+        mvo_weights = np.array([1000000 * cleaned_weights_mean[i] for i in range(len(cleaned_weights_mean))])
+
+        LastPrice = np.array([1 / p for p in StockData.tail(1).to_numpy()[0]])
+        Initial_Portfolio = np.multiply(mvo_weights, LastPrice)
+
+        Portfolio_Assets = TradeData @ Initial_Portfolio
+        self.mvo_result = pd.DataFrame(Portfolio_Assets, columns=["Mean Var"])
+        return self.mvo_result
+
     def check_and_make_directories(directories: list[str], root_dir = "."):
         for directory in directories:
             if not os.path.exists(os.path.join(root_dir, directory)):
                 os.makedirs(os.path.join(root_dir, directory))
+
+    def MaximizeReturns(MeanReturns, PortfolioSize):
+
+        # dependencies
+
+        c = (np.multiply(-1, MeanReturns))
+        A = np.ones([PortfolioSize, 1]).T
+        b = [1]
+        res = linprog(c, A_ub=A, b_ub=b, bounds=(0, 1), method='simplex')
+
+        return res
+
+    def MinimizeRisk(CovarReturns, PortfolioSize):
+
+        def f(x, CovarReturns):
+            func = np.matmul(np.matmul(x, CovarReturns), x.T)
+            return func
+
+        def constraintEq(x):
+            A = np.ones(x.shape)
+            b = 1
+            constraintVal = np.matmul(A, x.T) - b
+            return constraintVal
+
+        xinit = np.repeat(0.1, PortfolioSize)
+        cons = ({'type': 'eq', 'fun': constraintEq})
+        lb = 0
+        ub = 1
+        bnds = tuple([(lb, ub) for x in xinit])
+
+        opt = optimize.minimize(f, x0=xinit, args=(CovarReturns), bounds=bnds, constraints=cons, tol=10 ** -3)
+
+        return opt
+
+    def MinimizeRiskConstr(MeanReturns, CovarReturns, PortfolioSize, R):
+
+        def f(x, CovarReturns):
+            func = np.matmul(np.matmul(x, CovarReturns), x.T)
+            return func
+
+        def constraintEq(x):
+            AEq = np.ones(x.shape)
+            bEq = 1
+            EqconstraintVal = np.matmul(AEq, x.T) - bEq
+            return EqconstraintVal
+
+        def constraintIneq(x, MeanReturns, R):
+            AIneq = np.array(MeanReturns)
+            bIneq = R
+            IneqconstraintVal = np.matmul(AIneq, x.T) - bIneq
+            return IneqconstraintVal
+
+        xinit = np.repeat(0.1, PortfolioSize)
+        cons = ({'type': 'eq', 'fun': constraintEq},
+                {'type': 'ineq', 'fun': constraintIneq, 'args': (MeanReturns, R)})
+        lb = 0
+        ub = 1
+        bnds = tuple([(lb, ub) for x in xinit])
+
+        opt = optimize.minimize(f, args=(CovarReturns), method='trust-constr', x0=xinit, bounds=bnds, constraints=cons, tol=10 ** -3)
+
+        return opt
+
+    def StockReturnsComputing(StockPrice, Rows, Columns):
+        StockReturn = np.zeros([Rows - 1, Columns])
+        for j in range(Columns):  # j: Assets
+            for i in range(Rows - 1):  # i: Daily Prices
+                StockReturn[i, j] = ((StockPrice[i + 1, j] - StockPrice[i, j]) / StockPrice[i, j]) * 100
+
+        return StockReturn
