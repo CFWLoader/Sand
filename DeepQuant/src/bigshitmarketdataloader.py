@@ -75,7 +75,7 @@ class BigShitMarketDataLoader(object):
                 cached_df = self.load_cached_dataset(fixcache_csv_path)
             else:
                 cached_df = self.fix_missing_dates(self.raw_data)
-                cached_df.to_csv(fixcache_csv_path, encoding='utf-8')
+                cached_df.to_csv(fixcache_csv_path, encoding='utf-8', index=False)
             self.fixed_raw_data = cached_df
         return self.fixed_raw_data if self.fix_missing_data else self.raw_data
 
@@ -213,7 +213,7 @@ class BigShitMarketDataLoader(object):
         print("Shape of DataFrame: ", data_df.shape)
         data_df = data_df.sort_values(by=["date", "tic"]).reset_index(drop=True)
 
-        data_df.to_csv(cache_csv_path, encoding='utf-8')
+        data_df.to_csv(cache_csv_path, encoding='utf-8', index=False)
 
         return data_df
 
@@ -243,7 +243,7 @@ class BigShitMarketDataLoader(object):
         processed_full = processed_full.sort_values(['date', 'tic'])
         processed_full = processed_full.fillna(0)
         if self.use_cache:
-            processed_full.to_csv(cache_fecsv_path, encoding='utf-8')
+            processed_full.to_csv(cache_fecsv_path, encoding='utf-8', index=False)
 
         # processed_full.sort_values(['date', 'tic'], ignore_index=True).head(10)
         self.processed_full_data = processed_full
