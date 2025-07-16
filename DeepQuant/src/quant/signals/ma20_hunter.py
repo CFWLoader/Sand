@@ -5,7 +5,7 @@ class MA20Hunter(BSMSignalHunter):
     def __init__(self, df_to_analysis: pd.DataFrame):
         super().__init__(df_to_analysis)
 
-    def get_signals(self)->(list, list) :
+    def get_signals(self)-> pd.DataFrame :
         self.ma20trend = self.data_accessor.get_close_prices().rolling(20).mean()
         # date_col = self.shadow_df['trade_date']
         cls_price = self.data_accessor.get_close_prices()
@@ -33,5 +33,6 @@ class MA20Hunter(BSMSignalHunter):
                 if upping_flag:
                     upping_flag = False
                 # print('%s up %f %f, sell out time' % (date_col[iter_idx], cls_price[iter_idx], self.ma20trend[iter_idx]))
-
-        return buyin_idx, sellout_idx
+        # TODO 等后面再处理
+        # return buyin_idx, sellout_idx
+        return pd.DataFrame()
