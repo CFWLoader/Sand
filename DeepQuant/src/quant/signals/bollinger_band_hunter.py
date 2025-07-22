@@ -8,6 +8,8 @@ class BollingerBandHunter(BSMSignalHunter):
         self.indicated_df = None
 
     def get_signals(self) -> pd.DataFrame:
+        if self.indicated_df is not None:
+            return self.indicated_df[['date', 'buyin', 'sellout']]
         stock_df = Sdf.retype(self.data_accessor)
         boll_ub = stock_df['boll_ub']
         boll_lb = stock_df['boll_lb']

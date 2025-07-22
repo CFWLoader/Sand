@@ -10,9 +10,9 @@ class StrategyEvaluator(object):
         'boll': BollingerBandHunter
     }
 
-    BUY_IN_STRATEGIES = QuantTrader.BUY_IN_STRATEGIES
+    BUY_IN_STRATEGIES = QuantTrader.BuyInStrategy
 
-    SELL_OUT_STRATEGIES = QuantTrader.SELL_OUT_STRATEGIES
+    SELL_OUT_STRATEGIES = QuantTrader.SellOutStrategy
 
     def __init__(
             self,
@@ -29,12 +29,46 @@ class StrategyEvaluator(object):
         if signal_clz is None:
             print(f'Invalid signal: {signal}')
             return
-        self.signal_source = signal_clz(stock_data)
-        self.trader = QuantTrader(
-            initial_asset, buyin_strategy, sellout_strategy,
-            buyin_price, sellout_price, lot_size
-        )
+        self.signal_sources = {}
+        self.traders = {}
+        for tic_code in stock_data.tic:
+            signal_source = signal_clz(stock_data[stock_data.tic == tic_code])
+            self.signal_sources[tic_code] = signal_source
+            self.traders[tic_code] = QuantTrader(
+                initial_asset, buyin_strategy, sellout_strategy,
+                buyin_price, sellout_price, lot_size
+            )
+        self.evaluate_report = None
 
-    def evaluate(self) -> pd.DataFrame:
-        trade_signals = self.signal_source.get_signals()
-        return self.trader.simulate(self.signal_source.indicated_df)
+    def evaluate(self, tic_code) -> pd.DataFrame:
+        if self.evaluate_report is None:
+            self.evaluate_report = {}
+        if tic_code in self.signal_sources:
+            signal_source = self.signal_sources[tic_code]
+            trade_signals = signal_source.get_signals()
+            evaluated = self.traders[tic_code].simulate(signal_source.indicated_df)
+            self.evaluate_report[tic_code] = evaluated
+        return pd.DataFrame()
+
+    def evaluate_all(self):
+        self.evaluate_report = {}
+        for tic_code, signal_source in self.signal_sources.items():
+            trade_signals = signal_source.get_signals()
+            evaluated = self.traders[tic_code].simulate(signal_source.indicated_df)
+            self.evaluate_report[tic_code] = evaluated
+
+    def get_profit_and_loss_ratio(self) -> dict[str, float]:
+        plr_dict = {}
+        for tic_code, eval_report in self.evaluate_report.items():
+            # print(f'PLR for {tic_code}:')
+            trader = self.traders[tic_code]
+            plr_dict[tic_code] = trader.calculate_profit_loss_ratio()
+        return plr_dict
+
+    def get_open_close_reports(self) -> dict[str, pd.DataFrame]:
+        oc_reports = {}
+        for tic_code, eval_report in self.evaluate_report.items():
+            # print(f'PLR for {tic_code}:')
+            trader = self.traders[tic_code]
+            oc_reports[tic_code] = trader.sum_up_open_close_records()
+        return oc_reports

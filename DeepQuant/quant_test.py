@@ -7,6 +7,7 @@ from src.quant.strategy_evaluator import StrategyEvaluator
 matplotlib.use('TkAgg')  # 使用TkAgg后端
 import matplotlib.pyplot as plt
 
+SHORT_SIM_DATE = '2024-07-01'
 MY_TRAIN_START_DATE = '2015-01-01'
 MY_TRAIN_END_DATE = '2025-01-01'
 MY_TRADE_START_DATE = '2025-01-01'
@@ -16,7 +17,7 @@ CONCERNED_TICKET_LIST=['300014', '600011', '000977', '000766', '002415', '600036
 # CONCERNED_TICKET_LIST=['300014', '600011', '000977']
 
 if __name__ == '__main__':
-    bsm_loader = BigShitMarketDataLoader('exp1', MY_TRAIN_START_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST)
+    bsm_loader = BigShitMarketDataLoader('exp1', SHORT_SIM_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST)
     raw_data = bsm_loader.load_raw_data_only()
 
     strategy_eval = StrategyEvaluator(
@@ -28,8 +29,17 @@ if __name__ == '__main__':
         sellout_price= 'high'
     )
 
-    result_df = strategy_eval.evaluate()
-    print(result_df.tail(10))
+    strategy_eval.evaluate_all()
+    plr_set = strategy_eval.get_profit_and_loss_ratio()
+    # for tic, plr in plr_set.items():
+    #     print(f'tic: {tic} plr: {plr}')
+    oc_reports = strategy_eval.get_open_close_reports()
+    for tic, plr in oc_reports.items():
+        print(f'tic: {tic}, plr={plr_set[tic]}')
+        print(plr)
+
+    # result_df = strategy_eval.evaluate('300014')
+    # print(result_df.tail(10))
 
     # winrates_sum = 0
     # for tic in CONCERNED_TICKET_LIST:
