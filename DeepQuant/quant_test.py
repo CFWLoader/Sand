@@ -7,26 +7,28 @@ from src.quant.strategy_evaluator import StrategyEvaluator
 matplotlib.use('TkAgg')  # 使用TkAgg后端
 import matplotlib.pyplot as plt
 
-SHORT_SIM_DATE = '2024-07-01'
 MY_TRAIN_START_DATE = '2015-01-01'
 MY_TRAIN_END_DATE = '2025-01-01'
 MY_TRADE_START_DATE = '2025-01-01'
 MY_TRADE_END_DATE = '2025-07-10'
 
+SHORT_SIM_DATE_START = '2024-07-01'
+SHORT_SIM_DATE_END = '2025-07-31'
+
 CONCERNED_TICKET_LIST=['300014', '600011', '000977', '000766', '002415', '600036' ]
 # CONCERNED_TICKET_LIST=['300014', '600011', '000977']
 
 if __name__ == '__main__':
-    bsm_loader = BigShitMarketDataLoader('exp1', SHORT_SIM_DATE, MY_TRADE_END_DATE, CONCERNED_TICKET_LIST)
+    bsm_loader = BigShitMarketDataLoader('exp1', SHORT_SIM_DATE_START, SHORT_SIM_DATE_END, CONCERNED_TICKET_LIST)
     raw_data = bsm_loader.load_raw_data_only()
 
     strategy_eval = StrategyEvaluator(
         raw_data,
-        'boll',
+        'rsi',
         StrategyEvaluator.BUY_IN_STRATEGIES.ALL,
         StrategyEvaluator.SELL_OUT_STRATEGIES.ALL,
-        buyin_price= 'low',
-        sellout_price= 'high'
+        buyin_price= 'close',
+        sellout_price= 'close'
     )
 
     strategy_eval.evaluate_all()
@@ -36,7 +38,7 @@ if __name__ == '__main__':
     oc_reports = strategy_eval.get_open_close_reports()
     for tic, plr in oc_reports.items():
         print(f'tic: {tic}, plr={plr_set[tic]}')
-        print(plr)
+        # print(plr)
 
     # result_df = strategy_eval.evaluate('300014')
     # print(result_df.tail(10))

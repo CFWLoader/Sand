@@ -8,6 +8,12 @@ class BSMSignalHunter(object):
     def get_signals(self) -> pd.DataFrame:
         pass
 
+    def get_buyin_price_col_name(self) -> str:
+        pass
+
+    def get_sellout_price_col_name(self) -> str:
+        pass
+
     @staticmethod
     def calculate_win_rate(day_prices: pd.Series, date_str_pst: pd.Series, op_signals: pd.DataFrame) -> (int, int, float, list):
         """

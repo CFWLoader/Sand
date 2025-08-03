@@ -28,3 +28,9 @@ class BollingerBandHunter(BSMSignalHunter):
         self.data_accessor.reset_index(inplace=True)
         self.indicated_df.reset_index(inplace=True)
         return self.indicated_df[['date', 'buyin', 'sellout']]
+
+    def get_buyin_price_col_name(self) -> str:
+        return 'boll_lb'
+
+    def get_sellout_price_col_name(self) -> str:
+        return 'boll_ub'

@@ -42,21 +42,34 @@ class MA20Hunter(BSMSignalHunter):
             return self.indicated_df[['date', 'buyin', 'sellout']]
         stock_df = Sdf.retype(self.data_accessor)
         close_sma_20 = stock_df['close_20_sma']
-        boll_ub = stock_df['boll_ub']
-        boll_lb = stock_df['boll_lb']
         self.indicated_df = self.data_accessor.copy()
-        self.indicated_df['boll_ub'] = boll_ub
-        self.indicated_df['boll_lb'] = boll_lb
+        self.indicated_df['ma20'] = close_sma_20
         # 新增buyin_signal列
         self.indicated_df['buyin'] = 0
-        buyin_mask = self.indicated_df['boll_lb'].notna() & (self.indicated_df['low'] <= self.indicated_df['boll_lb'])
+        buyin_mask = self.indicated_df['ma20'].notna() & (self.indicated_df['ma20'] <= self.indicated_df['high'])
         self.indicated_df.loc[buyin_mask, 'buyin'] = 1
         # 新增sellout_signal列
         self.indicated_df['sellout'] = 0
-        sellout_mask = self.indicated_df['boll_ub'].notna() & (self.indicated_df['high'] >= self.indicated_df['boll_ub'])
+        sellout_mask = self.indicated_df['ma20'].notna() & (self.indicated_df['low'] >= self.indicated_df['ma20'])
         self.indicated_df.loc[sellout_mask, 'sellout'] = 1
         self.indicated_df.sort_values(by=["date"], inplace=True)
+
+        # 处理连续的1区间，仅保留第一个1
+        def process_signal_column(col):
+            # 标记连续1区间的变化
+            col_diff = col.diff().ne(0).cumsum()
+            # 在每个连续区间中，仅保留第一个1
+            return col.where(col.groupby(col_diff).cumcount() == 0, 0)
+
+        self.indicated_df['buyin'] = process_signal_column(self.indicated_df['buyin'])
+        self.indicated_df['sellout'] = process_signal_column(self.indicated_df['sellout'])
+
         self.data_accessor.reset_index(inplace=True)
         self.indicated_df.reset_index(inplace=True)
         return self.indicated_df[['date', 'buyin', 'sellout']]
-        return pd.DataFrame()
+
+    def get_buyin_price_col_name(self) -> str:
+        return 'ma20'
+
+    def get_sellout_price_col_name(self) -> str:
+        return 'ma20'

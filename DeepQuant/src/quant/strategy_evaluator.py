@@ -1,13 +1,22 @@
 import pandas as pd
 
 from src.quant.signals.bollinger_band_hunter import BollingerBandHunter
+from src.quant.signals.bsm_signal_hunter import BSMSignalHunter
+from src.quant.signals.kdj_hunter import KDJHunter
+from src.quant.signals.ma20_hunter import MA20Hunter
+from src.quant.signals.macd_hunter import MACDHunter
+from src.quant.signals.rsi_hunter import RSIHunter
 from src.quant.trader.quant_trader import QuantTrader
 
 
 class StrategyEvaluator(object):
 
     TRADE_SIGNALS = {
-        'boll': BollingerBandHunter
+        'ma20': MA20Hunter,
+        'boll': BollingerBandHunter,
+        'kdj': KDJHunter,
+        'macd': MACDHunter,
+        'rsi': RSIHunter
     }
 
     BUY_IN_STRATEGIES = QuantTrader.BuyInStrategy
@@ -32,11 +41,15 @@ class StrategyEvaluator(object):
         self.signal_sources = {}
         self.traders = {}
         for tic_code in stock_data.tic:
-            signal_source = signal_clz(stock_data[stock_data.tic == tic_code])
+            signal_source: BSMSignalHunter = signal_clz(stock_data[stock_data.tic == tic_code])
             self.signal_sources[tic_code] = signal_source
             self.traders[tic_code] = QuantTrader(
-                initial_asset, buyin_strategy, sellout_strategy,
-                buyin_price, sellout_price, lot_size
+                initial_asset,
+                buyin_strategy,
+                sellout_strategy,
+                buyin_price if buyin_price != 'signal' else signal_source.get_buyin_price_col_name(),
+                sellout_price if sellout_price != 'signal' else signal_source.get_sellout_price_col_name(),
+                lot_size
             )
         self.evaluate_report = None
 
