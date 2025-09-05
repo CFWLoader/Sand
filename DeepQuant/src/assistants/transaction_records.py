@@ -1,4 +1,5 @@
 from enum import Enum
+from os import path, makedirs
 import pandas as pd
 
 from src.assistants.transaction_reasons import TransactionReasonFinder
@@ -12,12 +13,19 @@ class TransactionRecordAdministrator(object):
     """ 交易记录管理员
     腾讯文档不支持个人开发者注册，目前只能生成
     """
-    def __init__(self, transaction_record: pd.DataFrame, raw_data_source: TransactionDataSources = TransactionDataSources.EAST_MONEY):
+    def __init__(self, transaction_record: pd.DataFrame, raw_data_source: TransactionDataSources = TransactionDataSources.EAST_MONEY, work_dir: str = 'trans_admin'):
         self.transaction_records = self.unify_transaction_data(transaction_record, raw_data_source)
-        self.transaction_reason_finder = None
+        self.work_dir = work_dir
+        self.trans_reason_finder = None
+        # if not path.exists(work_dir):
+        #     makedirs(work_dir)
 
-    def try_justify_transactions(self):
-        self.transaction_reason_finder = TransactionReasonFinder(self.transaction_records)
+    def try_justify_transactions(self) -> pd.DataFrame:
+        reason_finder_path = path.join(self.work_dir, 'tick_caches')
+        if not path.exists(reason_finder_path):
+            makedirs(reason_finder_path)
+        self.trans_reason_finder = TransactionReasonFinder(self.transaction_records, reason_finder_path)
+        return self.trans_reason_finder.try_justify_transactions()
 
 #region 交易数据格式统一
     @staticmethod
