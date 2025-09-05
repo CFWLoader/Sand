@@ -1,6 +1,9 @@
 from enum import Enum
 import pandas as pd
 
+from src.assistants.transaction_reasons import TransactionReasonFinder
+
+
 class TransactionDataSources(Enum):
     EAST_MONEY = 1
     FUTU = 2
@@ -11,6 +14,10 @@ class TransactionRecordAdministrator(object):
     """
     def __init__(self, transaction_record: pd.DataFrame, raw_data_source: TransactionDataSources = TransactionDataSources.EAST_MONEY):
         self.transaction_records = self.unify_transaction_data(transaction_record, raw_data_source)
+        self.transaction_reason_finder = None
+
+    def try_justify_transactions(self):
+        self.transaction_reason_finder = TransactionReasonFinder(self.transaction_records)
 
 #region 交易数据格式统一
     @staticmethod
