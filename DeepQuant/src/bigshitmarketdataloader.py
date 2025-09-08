@@ -68,7 +68,8 @@ class BigShitMarketDataLoader(object):
         if self.raw_data is None:
             print("download data failed!")
             return None
-        print('Loaded tickets: ', self.raw_data.tic)
+        if self.print_logs:
+            print('Loaded tickets: ', self.raw_data.tic)
         if self.fix_missing_data:
             fixcache_csv_path = os.path.join(self.dataset_dir, "bsmfix%s_%s.csv" % (self.dataset_start_date, self.dataset_end_date))
             if os.path.exists(fixcache_csv_path):

@@ -50,7 +50,7 @@ class MA20Hunter(BSMSignalHunter):
         self.indicated_df.loc[buyin_mask, 'buyin'] = 1
         # 新增sellout_signal列
         self.indicated_df['sellout'] = 0
-        sellout_mask = self.indicated_df['ma20'].notna() & (self.indicated_df['low'] >= self.indicated_df['ma20'])
+        sellout_mask = self.indicated_df['ma20'].notna() & (self.indicated_df['low'] <= self.indicated_df['ma20'])
         self.indicated_df.loc[sellout_mask, 'sellout'] = 1
         self.indicated_df.sort_values(by=["date"], inplace=True)
 
