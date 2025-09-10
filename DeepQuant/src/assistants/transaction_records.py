@@ -17,15 +17,15 @@ class TransactionRecordAdministrator(object):
         self.transaction_records = self.unify_transaction_data(transaction_record, raw_data_source)
         self.work_dir = work_dir
         self.trans_reason_finder = None
-        # if not path.exists(work_dir):
-        #     makedirs(work_dir)
+        self.justified_transactions = None
 
     def try_justify_transactions(self) -> pd.DataFrame:
         reason_finder_path = path.join(self.work_dir, 'tick_caches')
         if not path.exists(reason_finder_path):
             makedirs(reason_finder_path)
         self.trans_reason_finder = TransactionReasonFinder(self.transaction_records, reason_finder_path)
-        return self.trans_reason_finder.try_justify_transactions()
+        self.justified_transactions = self.trans_reason_finder.try_justify_transactions()
+        return self.justified_transactions
 
 #region 交易数据格式统一
     @staticmethod
@@ -56,7 +56,7 @@ class TransactionRecordAdministrator(object):
         })
 
         # 对可能为字符串类型的列去除空格
-        string_columns = ['code', 'direction']
+        string_columns = ['trade_date', 'code', 'direction']
         for col in string_columns:
             if col in unified_df.columns and unified_df[col].dtype == 'object':
                 unified_df[col] = unified_df[col].str.strip()
@@ -80,3 +80,27 @@ class TransactionRecordAdministrator(object):
         unified_df.reset_index(inplace=True, drop=True)
         return unified_df
 #endregion
+
+    def get_justified_transactions_view(self) -> pd.DataFrame:
+        if self.justified_transactions is None or self.justified_transactions.empty:
+            return pd.DataFrame()
+
+        # 创建新的DataFrame，保持行数一致
+        view_df = pd.DataFrame(index=self.justified_transactions.index)
+
+        # 添加指定列
+        view_df['日期'] = self.justified_transactions['trade_date']
+        view_df['股票代码'] = self.justified_transactions['code']
+        view_df['价格'] = self.justified_transactions['price']
+        view_df['数量'] = self.justified_transactions['volume'].where(
+            self.justified_transactions['direction'] != 'sell',
+            -self.justified_transactions['volume']
+        )
+        view_df['原因'] = self.justified_transactions['reasons']
+        # view_df['反对原因'] =
+        view_df['收盘价格'] = self.justified_transactions['close']
+        view_df['盘后分析'] = self.justified_transactions['objections'].apply(
+            lambda x: "有反向操作信号建议:" + x if x else ""
+        )
+
+        return view_df
